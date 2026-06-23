@@ -12,6 +12,7 @@
     - Analyzed data @ TRAIN_PATH to write eda_train_inventory.csv w/ path, size_bytes, duration, and sr
     - Analyzed CSV w/ stats for size_bytes, duration, sr
     - Plotted duration & sr histograms w/ seaborn & matplotlib
+    - Generated 4x4 grid of random usv's spectrograms
 
 ## June 18, 2026
 **Time:** 2:00pm–4:45pm
