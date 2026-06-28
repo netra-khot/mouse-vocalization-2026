@@ -1,5 +1,15 @@
 # Ziya's Progress Journal
  
+## June 27, 2026
+** Duration: 1 h**
+
+- Downloaded the dryad dataset
+    - Added it to this folder (+ sent ZIP to netra)
+    - Replaced old dryad files (the ones I got from the API) which fixed some of the issues I had opening them
+- Opened up some of the Dryad files
+    - Made some metadata (file type splits)
+    - Found out there's no syllable annotations
+
 ## June 22, 2026
 ** Time: 4:30pm-5:30pm**
 
