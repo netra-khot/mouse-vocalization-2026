@@ -1,7 +1,17 @@
 # Ziya's Progress Journal
  
+## June 29, 2026
+**Duration:** 1 h
+
+- More breakdown of contents in Dryad dataset
+    - USV recordings: 65
+    - Pleth files: 44
+    - Opto files: 3
+    - EMG files: 4
+    - Other: 1
+
 ## June 27, 2026
-** Duration: 1 h**
+**Duration:**  1 h
 
 - Downloaded the dryad dataset
     - Added it to this folder (+ sent ZIP to netra)
@@ -11,9 +21,9 @@
     - Found out there's no syllable annotations
 
 ## June 22, 2026
-** Time: 4:30pm-5:30pm**
+**Time:** 4:30pm-5:30pm
 
-** Duration: 1 h**
+**Duration:**  1 h
 
 - Verified that we're working with the audio files (not LFS pointers)
 - Played around with more EDA stuff
