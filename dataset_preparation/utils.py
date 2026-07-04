@@ -27,7 +27,7 @@ def get_spectrogram(audio_path, n_fft=1024, hop_length=None):
     return times, freqs, magnitude
 
 def get_main_freq_traj(audio_path, freq_min=20000, freq_max=125000,
-                         n_fft=1024, hop_length=None, energy_threshold=0.01):
+                         n_fft=1024, hop_length=None, energy_threshold=0.1):
     """
     Extracts the main (dominant) frequency trajectory from a USV audio file.
 

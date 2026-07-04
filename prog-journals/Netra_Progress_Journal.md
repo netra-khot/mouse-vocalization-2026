@@ -1,5 +1,30 @@
 # Netra's Progress Journal #
-## ENTRY 4 &rarr; 06/29/2026 (1 hour)
+## ENTRY 7 &rarr; 07/04/2026 (1.5 hours)
+### 2:30pm - 4:00pm
+- TODO need to reorganize code in audio_preprocess_01.ipynb and work out folder organization for utils.py
+- moved utils.py into dataset_preparation folder for easier usage
+- The extracted main frequency trajectory from DBA_9858_542.WAV  (chosen randomly) had a bad jump at the start
+- Wou   
+## ENTRY 6 &rarr; 07/02/2026 (2.5 hours)
+### 3:30pm - 6:00pm
+- Does the data need filtering --> need to verify dataset integrity
+    - I compared the raw spectrograms across the train/test samples
+        - sample rate indicates consistent 250 kHz
+        - Noise floor is broadband, meaning that it is present across the full spectrum rather than concentrated outside the USV range
+            - filtering will help remove noise below 25 kHz/above 110 kHz but won't fully clean noise overlapping the USV band itself
+- Started the main freq traj extraction --> pull out the dominant frequency over time from each USV
+    - Used ziya's get_main_freq_traj from freq-to-usv-model/utils.py
+## ENTRY 5 &rarr; 07/01/2026 (1 hour)
+### 9:30pm - 10:30pm
+- Started data preparation
+- Working on constructing the gitlab dataset
+    - Specifically worked on audio selection and preprocessing
+- First few kernels are imports and some data analysis for future processing
+    - loading data inventory ~22,000 filel w/ train and test
+- Printing sample rate, duration, and the channel audit
+- loaded data file and plotted the raw waveform
+- Restructured files to have data preparation as separate folder
+## ENTRY 4 &rarr; 06/30/2026 (1 hour)
 ### 9:30pm - 10:30pm
 - Started data 
 - Working on constructing the gitlab dataset
