@@ -1,10 +1,20 @@
+import sys
+from pathlib import Path
+
 import numpy as np
 import soundfile as sf
 import librosa
 from scipy.signal import butter, sosfiltfilt, find_peaks
 from scipy.ndimage import binary_closing, binary_opening
-from pathlib import Path
+import matplotlib.pyplot as plt
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from config import DATA_PATH
+
+print(plt)
 
 TRAIN_PATH = Path(DATA_PATH) / "train"
 TEST_PATH = Path(DATA_PATH) / "test"
@@ -93,6 +103,8 @@ def load_spectrogram(
     high_hz=100000,
     n_fft=1024,
     hop_length=128,
+    plot=False,
+    figsize=(16, 4),
 ):
     path = find_audio_file(filename)
 
@@ -107,6 +119,23 @@ def load_spectrogram(
         n_fft=n_fft,
         hop_length=hop_length,
     )
+
+    if plot:
+        plt.figure(figsize=figsize)
+        plt.pcolormesh(
+            times * 1000,
+            freqs / 1000,
+            S_db,
+            shading="auto",
+            cmap="magma",
+            vmin=-60,
+            vmax=0,
+        )
+        plt.xlabel("Time (ms)")
+        plt.ylabel("Frequency (kHz)")
+        plt.title(filename)
+        plt.tight_layout()
+        plt.show()
 
     return S_db, freqs, times
 
@@ -167,7 +196,7 @@ def get_main_freq_traj(
     freq_max=125000,
     n_fft=2048,
     hop_length=None,
-    entropy_threshold=0.8,
+    entropy_threshold=0.76,
     min_active_bins=2,
     jump_threshold_hz=5000,
     silence_value=0.0,
@@ -221,19 +250,25 @@ def get_main_freq_traj(
     # Normalize entropy to [0, 1]
     entropy = entropy / np.log2(prob.shape[0])
 
+    from scipy.ndimage import binary_opening, binary_closing, binary_dilation
+
     # Smooth entropy over 3 frames
     if len(entropy) >= 3:
         entropy_smooth = np.convolve(entropy, np.ones(3) / 3, mode="same")
     else:
         entropy_smooth = entropy
 
+    # Initial entropy detection
     active_bins = entropy_smooth < entropy_threshold
 
-    # Clean up isolated one-frame detections
+    # Remove isolated detections
     active_bins = binary_opening(active_bins, structure=np.ones(min_active_bins))
 
-    # Fill tiny gaps inside a vocalization
+    # Fill tiny gaps
     active_bins = binary_closing(active_bins, structure=np.ones(2))
+
+    # NEW: extend each detected vocalization by 2 frames on each side
+    active_bins = binary_dilation(active_bins, structure=np.ones(5))
 
     freq_traj = np.full(mag_usv.shape[1], silence_value, dtype=float)
 
@@ -265,49 +300,71 @@ def get_main_freq_traj(
     return times, freq_traj, active_bins
 
 
-# ORIGINAL FUNCTION BELOW, KEPT FOR REFERENCE
+def show_spectrogram_batch(
+    file_df,
+    batch_number=0,
+    batch_size=20,
+    random_state=42,
+    freq_max_khz=125,
+):
+    """
+    Display one batch of spectrograms for visual inspection.
 
-# def get_main_freq_traj(audio_path, freq_min=20000, freq_max=125000,
-#                          n_fft=1024, hop_length=None, energy_threshold=0.1):
-#     """
-#     Extracts the main (dominant) frequency trajectory from a USV audio file.
+    batch_number=0 shows files 1-20
+    batch_number=1 shows files 21-40
+    etc.
+    """
 
-#     Parameters
-#     ----------
-#     audio_path : str or Path
-#         Path to the .wav file.
-#     freq_min : float
-#         Minimum frequency (Hz) to consider — filters out non-USV noise. Default 20kHz.
-#     freq_max : float
-#         Maximum frequency (Hz) to consider. Default 125kHz (adjust based on your sample rate).
-#     n_fft : int
-#         FFT window size for the spectrogram.
-#     hop_length : int or None
-#         Number of samples between successive frames. Defaults to n_fft // 4 if None.
-#     energy_threshold : float
-#         Fraction of max energy below which a time bin is considered silence (frequency set to NaN).
+    shuffled_df = file_df.sample(
+        frac=1,
+        random_state=random_state
+    ).reset_index(drop=True)
 
-#     Returns
-#     -------
-#     times : np.ndarray
-#         Time values (seconds) for each point in the trajectory.
-#     freq_traj : np.ndarray
-#         Dominant frequency (Hz) at each time point. NaN where energy is below threshold.
-#     """
-#     times, freqs, magnitude = get_spectrogram(audio_path, n_fft=n_fft, hop_length=hop_length)
+    start = batch_number * batch_size
+    end = min(start + batch_size, len(shuffled_df))
+    batch_df = shuffled_df.iloc[start:end]
 
-#     # Restrict to USV frequency range
-#     freq_mask = (freqs >= freq_min) & (freqs <= freq_max)
-#     freqs_usv = freqs[freq_mask]
-#     magnitude_usv = magnitude[freq_mask, :]
+    if batch_df.empty:
+        print("No more files to display.")
+        return
 
-#     # Find dominant frequency at each time bin
-#     max_energy_per_bin = magnitude_usv.max(axis=0)
-#     dominant_freq_idx = np.argmax(magnitude_usv, axis=0)
-#     freq_traj = freqs_usv[dominant_freq_idx]
+    fig, axes = plt.subplots(5, 4, figsize=(18, 16))
+    axes = axes.flatten()
 
-#     # Mask out silent/low-energy bins as NaN
-#     energy_cutoff = energy_threshold * max_energy_per_bin.max()
-#     freq_traj = np.where(max_energy_per_bin >= energy_cutoff, freq_traj, np.nan)
+    for ax, (_, row) in zip(axes, batch_df.iterrows()):
+        audio, sr = load_audio(row["full_path"])
 
-#     return times, freq_traj
+        S_db, freqs, times = quick_spectrogram(
+            audio,
+            sr,
+            n_fft=1024,
+            hop_length=128,
+        )
+
+        ax.pcolormesh(
+            times * 1000,
+            freqs / 1000,
+            S_db,
+            shading="auto",
+            cmap="magma",
+            vmin=-60,
+            vmax=0,
+        )
+
+        ax.set_ylim(20, freq_max_khz)
+        ax.set_title(row["filename"], fontsize=9)
+        ax.set_xlabel("Time (ms)")
+        ax.set_ylabel("Frequency (kHz)")
+
+    # Hide unused panels in the final batch
+    for ax in axes[len(batch_df):]:
+        ax.axis("off")
+
+    plt.suptitle(
+        f"Spectrograms {start + 1}–{end} of {len(shuffled_df)}",
+        fontsize=16,
+    )
+    plt.tight_layout()
+    plt.show()
+
+    return batch_df
