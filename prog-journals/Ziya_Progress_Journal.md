@@ -1,7 +1,20 @@
 # Ziya's Progress Journal
 
+## Jul 19, 2026
+**Duration:** 1h 45m
+
+- Oopsies I have not updated this in a while
+- Ported 3 files in the QMC_mouseUSV repo
+    - subglottal_pressure, glottal_area, and impingement_length
+- Installed Octave to run the MATLAB files
+    - Took me a while to figure out how to use + navigate this
+- Organized the repo w/ folders
+    - Turned the pytorch folder into an importable package
+- Took notes on the purpose + processes of each the three ported files on google docs
+- Verified all the ported files against their MATLAB counterparts
+
 ## Jul 1, 2026
-**Duration:** 1 h
+**Duration:** 1h
 
 - Worked with the forked QMC_ratUSV repo
 - Trying to go from MATLAB -> PyTorch
