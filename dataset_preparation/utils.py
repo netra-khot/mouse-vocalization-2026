@@ -139,55 +139,381 @@ def load_spectrogram(
 
     return S_db, freqs, times
 
+def track_ridge_tfridge_like(
+    magnitude,
+    freqs,
+    active_bins,
+    top_k=8,
+    jump_penalty=0.08,
+    max_jump_hz=None,
+):
+    """
+    Track the strongest globally consistent frequency ridge using
+    dynamic programming.
 
-def track_ridge_tfridge_like(mag_usv, freqs_usv, active_bins, top_k=5, jump_penalty=1e-7):
-    n_freq, n_time = mag_usv.shape
-    candidates = []
+    Parameters
+    ----------
+    magnitude : np.ndarray
+        Spectrogram magnitude with shape:
+        (number_of_frequencies, number_of_time_frames)
 
-    for t in range(n_time):
-        if not active_bins[t]:
-            candidates.append([])
+    freqs : np.ndarray
+        Frequency value for each spectrogram row.
+
+    active_bins : np.ndarray
+        Boolean array indicating which time frames contain a detected
+        vocalization.
+
+    top_k : int
+        Maximum number of peak candidates retained per active frame.
+
+    jump_penalty : float
+        Penalty applied per kHz of frequency movement between adjacent
+        frames. Larger values favor smoother trajectories.
+
+    max_jump_hz : float or None
+        Optional maximum allowed frequency change between adjacent frames.
+        Leave as None initially so genuine frequency jumps remain possible.
+
+    Returns
+    -------
+    np.ndarray
+        One frequency value per time frame. Inactive frames contain NaN.
+    """
+
+    n_freqs, n_times = magnitude.shape
+    freq_traj = np.full(n_times, np.nan, dtype=float)
+
+    active_indices = np.flatnonzero(active_bins)
+
+    if len(active_indices) == 0:
+        return freq_traj
+
+    # ---------------------------------------------------------
+    # Split active frames into separate contiguous segments.
+    # This prevents the tracker from connecting vocalizations
+    # across silence.
+    # ---------------------------------------------------------
+    split_locations = np.where(np.diff(active_indices) > 1)[0] + 1
+    active_segments = np.split(active_indices, split_locations)
+
+    for segment_times in active_segments:
+
+        if len(segment_times) == 0:
             continue
 
-        peaks, props = find_peaks(mag_usv[:, t])
-        if len(peaks) == 0:
-            peaks = np.array([np.argmax(mag_usv[:, t])])
+        candidate_bins = []
+        emission_scores = []
 
-        amps = mag_usv[peaks, t]
-        best = peaks[np.argsort(amps)[-top_k:]]
-        candidates.append(best)
+        # -----------------------------------------------------
+        # Find candidate spectral peaks in every frame.
+        # -----------------------------------------------------
+        for t in segment_times:
 
-    ridge = np.zeros(n_time)
+            spectrum = magnitude[:, t]
 
-    prev_freq = None
+            peaks, _ = find_peaks(spectrum)
 
-    for t in range(n_time):
-        if len(candidates[t]) == 0:
-            prev_freq = None
+            # If no local peak exists, use the strongest bin.
+            if len(peaks) == 0:
+                peaks = np.array([np.argmax(spectrum)])
+
+            peak_amplitudes = spectrum[peaks]
+
+            # Retain only the strongest top_k candidates.
+            strongest_order = np.argsort(peak_amplitudes)[::-1][:top_k]
+            peaks = peaks[strongest_order]
+            peak_amplitudes = peak_amplitudes[strongest_order]
+
+            candidate_bins.append(peaks)
+
+            # Convert candidate amplitudes into relative dB scores.
+            candidate_db = 20 * np.log10(peak_amplitudes + 1e-12)
+            candidate_db -= np.max(candidate_db)
+
+            # Map the relative values into approximately 0 to 1.
+            candidate_score = np.clip(
+                1.0 + candidate_db / 40.0,
+                0.0,
+                1.0,
+            )
+
+            emission_scores.append(candidate_score)
+
+        number_of_frames = len(segment_times)
+
+        # best_scores[i][j] is the best total score ending at
+        # candidate j in segment frame i.
+        best_scores = [None] * number_of_frames
+        backpointers = [None] * number_of_frames
+
+        # All candidates in the first frame are possible starting points.
+        best_scores[0] = emission_scores[0].copy()
+        backpointers[0] = np.full(
+            len(candidate_bins[0]),
+            -1,
+            dtype=int,
+        )
+
+        # -----------------------------------------------------
+        # Forward dynamic-programming pass.
+        # -----------------------------------------------------
+        for i in range(1, number_of_frames):
+
+            current_candidates = candidate_bins[i]
+            previous_candidates = candidate_bins[i - 1]
+
+            current_freqs = freqs[current_candidates]
+            previous_freqs = freqs[previous_candidates]
+
+            current_scores = np.full(
+                len(current_candidates),
+                -np.inf,
+                dtype=float,
+            )
+
+            current_backpointers = np.full(
+                len(current_candidates),
+                -1,
+                dtype=int,
+            )
+
+            for current_index, current_frequency in enumerate(current_freqs):
+
+                frequency_changes_hz = np.abs(
+                    previous_freqs - current_frequency
+                )
+
+                transition_scores = (
+                    best_scores[i - 1]
+                    - jump_penalty * (frequency_changes_hz / 1000.0)
+                )
+
+                # Optionally prevent unrealistically large frame-to-frame
+                # jumps while still allowing normal mode transitions.
+                if max_jump_hz is not None:
+                    transition_scores[
+                        frequency_changes_hz > max_jump_hz
+                    ] = -np.inf
+
+                best_previous_index = np.argmax(transition_scores)
+                best_previous_score = transition_scores[
+                    best_previous_index
+                ]
+
+                if np.isfinite(best_previous_score):
+                    current_scores[current_index] = (
+                        best_previous_score
+                        + emission_scores[i][current_index]
+                    )
+
+                    current_backpointers[current_index] = (
+                        best_previous_index
+                    )
+
+            best_scores[i] = current_scores
+            backpointers[i] = current_backpointers
+
+        # -----------------------------------------------------
+        # Backtrack from the best candidate in the final frame.
+        # -----------------------------------------------------
+        final_candidate = np.argmax(best_scores[-1])
+
+        if not np.isfinite(best_scores[-1][final_candidate]):
             continue
 
-        best_score = -np.inf
-        best_freq = 0
+        selected_candidates = np.full(
+            number_of_frames,
+            -1,
+            dtype=int,
+        )
 
-        for idx in candidates[t]:
-            f = freqs_usv[idx]
-            amp_score = np.log(mag_usv[idx, t] + 1e-12)
+        selected_candidates[-1] = final_candidate
 
-            if prev_freq is None:
-                continuity_score = 0
-            else:
-                continuity_score = -jump_penalty * (f - prev_freq) ** 2
+        for i in range(number_of_frames - 1, 0, -1):
 
-            score = amp_score + continuity_score
+            selected_candidates[i - 1] = backpointers[i][
+                selected_candidates[i]
+            ]
 
-            if score > best_score:
-                best_score = score
-                best_freq = f
+            if selected_candidates[i - 1] < 0:
+                break
 
-        ridge[t] = best_freq
-        prev_freq = best_freq
+        # -----------------------------------------------------
+        # Convert selected candidate indices into frequencies.
+        # -----------------------------------------------------
+        for i, t in enumerate(segment_times):
 
-    return ridge
+            selected_index = selected_candidates[i]
+
+            if selected_index < 0:
+                continue
+
+            frequency_bin = candidate_bins[i][selected_index]
+            freq_traj[t] = freqs[frequency_bin]
+
+    return freq_traj
+
+# def track_ridge_tfridge_like(
+#     magnitude,
+#     freqs,
+#     active_bins,
+#     top_k=5,
+#     jump_penalty=1e-7,
+# ):
+#     """
+#     Track a frequency trajectory starting from the strongest active frame.
+
+#     The trajectory is tracked:
+#       1. Forward from the strongest frame
+#       2. Backward from the strongest frame
+#     """
+
+#     n_freqs, n_times = magnitude.shape
+#     freq_traj = np.full(n_times, np.nan)
+
+#     # Find all active time frames.
+#     active_indices = np.flatnonzero(active_bins)
+
+#     if len(active_indices) == 0:
+#         return freq_traj
+
+#     # Find the strongest active time frame.
+#     frame_energy = magnitude[:, active_indices].max(axis=0)
+#     seed_position = np.argmax(frame_energy)
+#     seed_time = active_indices[seed_position]
+
+#     # Find peak candidates for every active frame.
+#     candidates = []
+
+#     for t in range(n_times):
+#         if not active_bins[t]:
+#             candidates.append(np.array([], dtype=int))
+#             continue
+
+#         peak_indices, _ = find_peaks(magnitude[:, t])
+
+#         # If find_peaks finds nothing, use the strongest frequency bin.
+#         if len(peak_indices) == 0:
+#             peak_indices = np.array([np.argmax(magnitude[:, t])])
+
+#         # Keep only the strongest top_k peaks.
+#         peak_strengths = magnitude[peak_indices, t]
+#         strongest_order = np.argsort(peak_strengths)[::-1][:top_k]
+#         candidates.append(peak_indices[strongest_order])
+
+#     # Initialize the trajectory at the strongest frame.
+#     seed_candidates = candidates[seed_time]
+
+#     if len(seed_candidates) == 0:
+#         return freq_traj
+
+#     seed_amplitudes = magnitude[seed_candidates, seed_time]
+#     seed_index = seed_candidates[np.argmax(seed_amplitudes)]
+#     freq_traj[seed_time] = freqs[seed_index]
+
+#     # ---------------------------------------------------------
+#     # Track forward from the strongest frame.
+#     # ---------------------------------------------------------
+#     previous_frequency = freq_traj[seed_time]
+
+#     for t in range(seed_time + 1, n_times):
+#         if not active_bins[t]:
+#             continue
+
+#         frame_candidates = candidates[t]
+
+#         if len(frame_candidates) == 0:
+#             continue
+
+#         candidate_freqs = freqs[frame_candidates]
+#         candidate_amplitudes = magnitude[frame_candidates, t]
+
+#         scores = (
+#             candidate_amplitudes
+#             - jump_penalty * np.abs(candidate_freqs - previous_frequency)
+#         )
+
+#         best_candidate = frame_candidates[np.argmax(scores)]
+#         freq_traj[t] = freqs[best_candidate]
+#         previous_frequency = freq_traj[t]
+
+#     # ---------------------------------------------------------
+#     # Track backward from the strongest frame.
+#     # ---------------------------------------------------------
+#     previous_frequency = freq_traj[seed_time]
+
+#     for t in range(seed_time - 1, -1, -1):
+#         if not active_bins[t]:
+#             continue
+
+#         frame_candidates = candidates[t]
+
+#         if len(frame_candidates) == 0:
+#             continue
+
+#         candidate_freqs = freqs[frame_candidates]
+#         candidate_amplitudes = magnitude[frame_candidates, t]
+
+#         scores = (
+#             candidate_amplitudes
+#             - jump_penalty * np.abs(candidate_freqs - previous_frequency)
+#         )
+
+#         best_candidate = frame_candidates[np.argmax(scores)]
+#         freq_traj[t] = freqs[best_candidate]
+#         previous_frequency = freq_traj[t]
+
+#     return freq_traj
+
+# def track_ridge_tfridge_like(mag_usv, freqs_usv, active_bins, top_k=5, jump_penalty=1e-9):
+#     n_freq, n_time = mag_usv.shape
+#     candidates = []
+
+#     for t in range(n_time):
+#         if not active_bins[t]:
+#             candidates.append([])
+#             continue
+
+#         peaks, props = find_peaks(mag_usv[:, t])
+#         if len(peaks) == 0:
+#             peaks = np.array([np.argmax(mag_usv[:, t])])
+
+#         amps = mag_usv[peaks, t]
+#         best = peaks[np.argsort(amps)[-top_k:]]
+#         candidates.append(best)
+
+#     ridge = np.zeros(n_time)
+
+#     prev_freq = None
+
+#     for t in range(n_time):
+#         if len(candidates[t]) == 0:
+#             prev_freq = None
+#             continue
+
+#         best_score = -np.inf
+#         best_freq = 0
+
+#         for idx in candidates[t]:
+#             f = freqs_usv[idx]
+#             amp_score = np.log(mag_usv[idx, t] + 1e-12)
+
+#             if prev_freq is None:
+#                 continuity_score = 0
+#             else:
+#                 continuity_score = -jump_penalty * (f - prev_freq) ** 2
+
+#             score = amp_score + continuity_score
+
+#             if score > best_score:
+#                 best_score = score
+#                 best_freq = f
+
+#         ridge[t] = best_freq
+#         prev_freq = best_freq
+
+#     return ridge
 
 
 def get_main_freq_traj(
@@ -195,7 +521,7 @@ def get_main_freq_traj(
     freq_min=20000,
     freq_max=125000,
     n_fft=2048,
-    hop_length=None,
+    hop_length=128,
     entropy_threshold=0.76,
     min_active_bins=2,
     jump_threshold_hz=5000,
@@ -238,11 +564,10 @@ def get_main_freq_traj(
     if mag_usv.size == 0:
         return times, np.full_like(times, silence_value), np.zeros_like(times, dtype=bool)
     
-    power = mag_usv ** 2
+    # frame_energy = mag_usv.max(axis=0)
+    # seed = np.argmax(frame_energy * active_bins)
 
-    # Normalize each time frame into a probability distribution.
-    # Whistle-like frames concentrate power in a few bins -> low entropy.
-    # Noise/silence spreads weak power around -> high entropy.
+    power = mag_usv ** 2
     prob = power / (np.sum(power, axis=0, keepdims=True) + 1e-12)
 
     entropy = -np.sum(prob * np.log2(prob + 1e-12), axis=0)
@@ -272,30 +597,38 @@ def get_main_freq_traj(
 
     freq_traj = np.full(mag_usv.shape[1], silence_value, dtype=float)
 
-    # Only run argmax where we believe there is real signal
+    # Only run argmax where we thjnk there is real signal
     if np.any(active_bins):
+#         freq_traj = track_ridge_tfridge_like(
+#     mag_usv,
+#     freqs_usv,
+#     active_bins,
+#     top_k=5,
+#     jump_penalty=1e-9
+# )
         freq_traj = track_ridge_tfridge_like(
-    mag_usv,
-    freqs_usv,
-    active_bins,
-    top_k=5,
-    jump_penalty=1e-7
+    magnitude=mag_usv,
+    freqs=freqs_usv,
+    active_bins=active_bins,
+    top_k=8,
+    jump_penalty=0.02,
+    max_jump_hz=None,
 )
 
     # Remove isolated impossible jumps
-    for i in range(1, len(freq_traj) - 1):
-        prev_f = freq_traj[i - 1]
-        curr_f = freq_traj[i]
-        next_f = freq_traj[i + 1]
+    # for i in range(1, len(freq_traj) - 1):
+    #     prev_f = freq_traj[i - 1]
+    #     curr_f = freq_traj[i]
+    #     next_f = freq_traj[i + 1]
 
-        if prev_f == silence_value or curr_f == silence_value or next_f == silence_value:
-            continue
+    #     if prev_f == silence_value or curr_f == silence_value or next_f == silence_value:
+    #         continue
 
-        if (
-            abs(curr_f - prev_f) > jump_threshold_hz
-            and abs(curr_f - next_f) > jump_threshold_hz
-        ):
-            freq_traj[i] = (prev_f + next_f) / 2
+    #     if (
+    #         abs(curr_f - prev_f) > jump_threshold_hz
+    #         and abs(curr_f - next_f) > jump_threshold_hz
+    #     ):
+    #         freq_traj[i] = (prev_f + next_f) / 2
 
     return times, freq_traj, active_bins
 
