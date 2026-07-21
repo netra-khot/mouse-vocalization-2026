@@ -701,3 +701,26 @@ def show_spectrogram_batch(
     plt.show()
 
     return batch_df
+
+
+def export_mft(audio_path, output_dir):
+    """
+    Extract and save the MFT for a single WAV file.
+    """
+
+    times, freq_traj, active_bins = get_main_freq_traj(audio_path)
+
+    df = pd.DataFrame({
+        "time_s": times,
+        "frequency_hz": freq_traj,
+        "active": active_bins.astype(int),
+    })
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_file = output_dir / (Path(audio_path).stem + ".csv")
+
+    df.to_csv(output_file, index=False)
+
+    return output_file
