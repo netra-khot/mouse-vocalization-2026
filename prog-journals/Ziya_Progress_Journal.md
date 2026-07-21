@@ -1,5 +1,15 @@
 # Ziya's Progress Journal
 
+## Jul 20, 2026
+**Duration:** 1h 45m
+- Ported 3 more files
+    - airflow, USVfreq, jet_speed
+- made two separate functions for jet_speed
+    - source code had like completely separate logic depending on if it was pressure or airflow based
+- replaced redundant code w/ function calls
+- fixed bug relating to elementwise ops vs matrix ops
+    - I did edit the Hakanssons MATLAB code for this but nothing that would change the actual values
+
 ## Jul 19, 2026
 **Duration:** 1h 45m
 
