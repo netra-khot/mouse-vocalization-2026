@@ -1,5 +1,11 @@
 # Ziya's Progress Journal
 
+## Jul 28, 2026
+**Duration:**
+- Added the ported Hakannson et al. model files from the QMC_mouseUSV repo
+- Spent way too long figuring out why my torch wasn't installing in this repo
+    - Troubleshooted my Python Interpreter not pointing to what was in my .venv
+
 ## Jul 20, 2026
 **Duration:** 1h 45m
 - Ported 3 more files
