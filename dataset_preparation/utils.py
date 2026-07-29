@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config import DATA_PATH
 
-print(plt)
+# print(plt)
 
 TRAIN_PATH = Path(DATA_PATH) / "train"
 TEST_PATH = Path(DATA_PATH) / "test"
@@ -522,7 +522,7 @@ def get_main_freq_traj(
     freq_max=125000,
     n_fft=2048,
     hop_length=128,
-    entropy_threshold=0.76,
+    entropy_threshold=0.72,
     min_active_bins=2,
     jump_threshold_hz=5000,
     silence_value=0.0,
@@ -586,13 +586,15 @@ def get_main_freq_traj(
     # Initial entropy detection
     active_bins = entropy_smooth < entropy_threshold
 
+    
+
     # Remove isolated detections
     active_bins = binary_opening(active_bins, structure=np.ones(min_active_bins))
 
     # Fill tiny gaps
     active_bins = binary_closing(active_bins, structure=np.ones(2))
 
-    # NEW: extend each detected vocalization by 2 frames on each side
+    #  Extend each detected vocalization by 2 frames on each side
     active_bins = binary_dilation(active_bins, structure=np.ones(5))
 
     freq_traj = np.full(mag_usv.shape[1], silence_value, dtype=float)
@@ -614,6 +616,20 @@ def get_main_freq_traj(
     jump_penalty=0.02,
     max_jump_hz=None,
 )
+
+    
+    # backward_frames = 5
+
+    # active_indices = np.flatnonzero(active_bins)
+
+    # if len(active_indices) > 0:
+    #     starts = active_indices[
+    #         np.r_[True, np.diff(active_indices) > 1]
+    #     ]
+
+    # for start in starts:
+    #     new_start = max(0, start - backward_frames)
+    #     active_bins[new_start:start] = True
 
     # Remove isolated impossible jumps
     # for i in range(1, len(freq_traj) - 1):

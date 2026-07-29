@@ -1,0 +1,8 @@
+{
+  "n_contours": 1047,
+  "n_clusters": 5,
+  "pca_components": 20,
+  "pca_variance_explained": 0.9883500217746023,
+  "inertia": 18514.119950708704,
+  "sample_silhouette_score": 0.06578730744295627
+}
