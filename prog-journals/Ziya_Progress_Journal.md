@@ -1,13 +1,42 @@
 # Ziya's Progress Journal
 
 ## Jul 28, 2026
-**Duration:**
+**Duration: 2 hrs 19 min**
+
 - Added the ported Hakannson et al. model files from the QMC_mouseUSV repo
-- Spent way too long figuring out why my torch wasn't installing in this repo
+- Spent way too long figuring out why my torch and librosa wasn't installing in this repo
     - Troubleshooted my Python Interpreter not pointing to what was in my .venv
+    - Then also created a new environment for the kernels to be run in
+    - why did this take me so freaking long omg.
+- Made early draft of LSTM controller
+    - Kind of ball parked some of the numbers b/c I'm not yet sure on how we're doing the input
+        - **Remember to update the num_syllables** &rarr; set to 6 rn
+        - **Remember to update seq_len** &rarr; set to 100 rn
+
+
+## Jul 20-27, 2026
+**Duration:** ~3 hrs, unsure b/c it wasn't on VSCode (no WakaTime tracking)
+
+- Updating this late b/c I forgot :(
+- Did some research into what building the model will entail
+    - LSTM vs GRU deliberation
+- Did more research into Nengo
+    - Found these useful slides: https://www.cs.put.poznan.pl/ibladek/students/mpsip/nengo_intro.pdf 
+        - References Dr. Chris Eliasmith's (from Waterloo) book
+- Went through the backpropogation lecture slides Dr. Tripp sent
+    - Was honestly pretty technical, needed to do further research to understand the slides
+    - Really confused on the math but hopefully we don't need to know that
+- Made a beautiful pipeline flowchart! will upload on our Google Drive when I remember
+- Still need to understand what 'freezing' means
+- Made notes on backpropogation steps (they're in my notebook, will put pic on Google Drive)
+    - May have issues with the sqrt() part of the model
+        - I think we'd need to limit what the controller can output to not completely break the physics
+    - Confirmed that the Hakansson's model is differentiable
+        - Means that it can be backpropogated through
 
 ## Jul 20, 2026
 **Duration:** 1h 45m
+
 - Ported 3 more files
     - airflow, USVfreq, jet_speed
 - made two separate functions for jet_speed
