@@ -1,5 +1,9 @@
 # Ziya's Progress Journal
 
+## Jul 29, 2026
+**Duration: **
+- 
+
 ## Jul 28, 2026
 **Duration: 2 hrs 19 min**
 

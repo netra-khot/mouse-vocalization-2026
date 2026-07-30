@@ -31,14 +31,14 @@ class LSTMController(nn.Module):
             activations: tensor of shape (batch, seq_len, 4) each
             value in [0,1] ordered as (resp, PCAIA, CT, TA)
         """
-        batch_size = syllable_id.size[0]
+        batch_size = syllable_id.size(0)
 
         embedded = self.embedding(syllable_id)  # (batch_size, embedding_dim)
         embedded_repeated = embedded.unsqueeze(1).repeat(1, self.seq_len, 1)  # (batch_size, seq_len, embedding_dim)
 
         lstm_out, _ = self.lstm(embedded_repeated)  # (batch_size, seq_len, hidden_dim)
 
-        raw_output = self.output_layer(lstm_out)  # (batch_size, seq_len, 4)
+        raw_output = self.fc(lstm_out)  # (batch_size, seq_len, 4)
         activations = torch.sigmoid(raw_output)  # constrain to [0,1]
 
         return activations
