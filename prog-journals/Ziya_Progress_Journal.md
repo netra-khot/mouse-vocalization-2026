@@ -1,8 +1,18 @@
 # Ziya's Progress Journal
 
 ## Jul 29, 2026
-**Duration: **
-- 
+**Duration: 2 hrs 3 min**
+
+- Chained the LSTM controller w/ the ported Hakansson's model
+    - Found some bugs in the controller + fixed those
+    - Very surprised that this worked lol
+    - Confirmed that the tensor shapes are all correct
+    - Checked the gradients reach every LSTM parameter -> no broken links in the computation graph
+    - Had an issue with giving the a synthetic but like plausible dummy mft at the beginning
+- Added utils.py with plot_activations and plot_activations_multi to visualize the 4 muscle activation curves
+    - They look like flat lines right now, that's b/c the model is untrained
+- Next steps once we have data labelled w/ syllable types: build the real training loop (optimizer + epochs)
+    - Could try doing this against like synthetic but learnable data to confirm loss actually decreases to some extent
 
 ## Jul 28, 2026
 **Duration: 2 hrs 19 min**
