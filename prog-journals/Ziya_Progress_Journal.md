@@ -1,5 +1,23 @@
 # Ziya's Progress Journal
 
+## Jul 30, 2026
+**Duration: 53 min**
+
+- Built a real training loop (Adam optimizer, started w/ 200 epochs) for the LSTM controller
+    - Tested against a synthetic but still kind of plasible mft
+- Plotted losses over time
+- Ablations on learning rate:
+    - `lr=1e-6`: Loss barely moved over 200 epochs (617 million &rarr; 592 million)
+        - Model wasn't really learning despite all the gradients flowing correctly
+    - `lr=1e-2`: Loss dropped cleanly (897 million &rarr; 231 thousand)
+        - Fast improvement early then a more smooth convergence I think
+    - `lr=1e-2` & increased epochs to 300: Loss drops from 729 million &rarr; 19.6 thousand
+- Validated the trained model directly (not just the loss)
+    - Predicted f0 range (30,338-59612 Hz) is close to the data's range (30,000-60,000 Hz)
+    - Tracking the beta value for the glottal/tracheal diameter ratio (could be problematic in the future)
+- First full confirmation that the entire pipeline can actually learn a target end to end
+- Still using synthetic data for now
+
 ## Jul 29, 2026
 **Duration: 2 hrs 3 min**
 
