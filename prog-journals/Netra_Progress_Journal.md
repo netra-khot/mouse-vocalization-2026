@@ -1,4 +1,39 @@
 # Netra's Progress Journal #
+## ENTRY 20 &rarr; 07/31/2026 (1 hour)
+### 9:00pm - 10:00pm
+- saved all contours to a pickle file
+- finalized the mft algorithm by removing all gaps in the contour (candidate should never be NaN or 0)
+- removed vocalizations with no visible main frequency trajectory (cleaned_file_df contains 21861 files whereas original file_df contains)
+- checked that pickle file contained correct file type, plotting, # of files
+## ENTRY 19 &rarr; 07/27/2026 (3 hours)
+### 9:30pm - 12:30am
+- maybe let's try clustering on our own! it will be way faster bc its running on vscode and not chrome...
+- looking at clustering algorithms, k-means and PCA will be good to cluster and reduce dimensionality for vector quantities of mfts
+- pipeline kinda goes use get main freq traj method, cluster using above methods, form the cluster groups (lots of extra steps in between obv)
+- run 20 files, 100 files, 1000 files, and clusters are pretty even (270 - 330)
+    - looks like the common clusters are upward, flat, chevron, u-shaped, complex?, and down (separate but similar to flat)
+- this algorithm works decently well (compared the cluster average shape with the files it clustered inside that group, the files i checked in clusters have the same features)
+- may want to try deepsqueak again bc that like actually works and is validated properly but talk to Dr. Tripp first
+## ENTRY 18 &rarr; 07/25/2026 (1 hour)
+### 5:30 - 6:30pm
+- started working on detection of the rest of the files
+    - deepsqueak will end up taking a few days to process all 22k files, also acknowledging that the online session must be active
+- install computer vision tool
+## ENTRY 17 &rarr; 07/23/2026 (2 hours)
+### 10:00 - 12:00am
+- Loaded the online MATLAB with the DeepSqueak zip (after many failures)
+    - GUI successfully opened
+- copied our data, imported into the DeepSqueak audio folder
+- started processing ~15 audio files (first 15 in train)
+    - grouped the flat syllables together (clustering without formal label) still need to check other files
+## ENTRY 16 &rarr; 07/21/2026 (1.5 hours)
+### 3:00 - 4:30pm
+- Evaluated VocalMat vs. DeepSqueak, going with DeepSqueak
+   - DeepSqueak adjusts sample rate based on recording
+   - Accepts raw .wav files, saves a lot of the rescaling work for us
+   - Will be easier to set up contour detection validation to evaluate MFT algorithm
+- The classifier automatically clusters the data based on shape, but we have to physically assign specific syllable names
+   - Make sure to run the labels by Dr. Tripp before finalizing
 ## ENTRY 15 &rarr; 07/20/2026 (1.5 hours)
 ### 3:00 - 4:00pm
 - Added method for exporting the MFTs (export_mft)

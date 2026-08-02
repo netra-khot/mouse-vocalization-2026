@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import DATA_PATH
+import pickle
 
 # print(plt)
 
@@ -205,6 +206,14 @@ def track_ridge_tfridge_like(
         candidate_bins = []
         emission_scores = []
 
+        segment_max_amplitude = np.max(
+            magnitude[:, segment_times]
+        )
+
+        segment_max_db = 20 * np.log10(
+            segment_max_amplitude + 1e-12
+        )
+
         # -----------------------------------------------------
         # Find candidate spectral peaks in every frame.
         # -----------------------------------------------------
@@ -227,15 +236,18 @@ def track_ridge_tfridge_like(
 
             candidate_bins.append(peaks)
 
-            # Convert candidate amplitudes into relative dB scores.
-            candidate_db = 20 * np.log10(peak_amplitudes + 1e-12)
-            candidate_db -= np.max(candidate_db)
+            candidate_db = (
+                20 * np.log10(peak_amplitudes + 1e-12)
+                - segment_max_db
+            )
 
-            # Map the relative values into approximately 0 to 1.
+
+            # Strong candidates are close to 0 dB.
+            # Weak competing ridges remain strongly negative.
             candidate_score = np.clip(
-                1.0 + candidate_db / 40.0,
+                candidate_db,
+                -60.0,
                 0.0,
-                1.0,
             )
 
             emission_scores.append(candidate_score)
@@ -255,9 +267,7 @@ def track_ridge_tfridge_like(
             dtype=int,
         )
 
-        # -----------------------------------------------------
         # Forward dynamic-programming pass.
-        # -----------------------------------------------------
         for i in range(1, number_of_frames):
 
             current_candidates = candidate_bins[i]
@@ -314,9 +324,7 @@ def track_ridge_tfridge_like(
             best_scores[i] = current_scores
             backpointers[i] = current_backpointers
 
-        # -----------------------------------------------------
         # Backtrack from the best candidate in the final frame.
-        # -----------------------------------------------------
         final_candidate = np.argmax(best_scores[-1])
 
         if not np.isfinite(best_scores[-1][final_candidate]):
@@ -339,9 +347,7 @@ def track_ridge_tfridge_like(
             if selected_candidates[i - 1] < 0:
                 break
 
-        # -----------------------------------------------------
         # Convert selected candidate indices into frequencies.
-        # -----------------------------------------------------
         for i, t in enumerate(segment_times):
 
             selected_index = selected_candidates[i]
@@ -353,168 +359,6 @@ def track_ridge_tfridge_like(
             freq_traj[t] = freqs[frequency_bin]
 
     return freq_traj
-
-# def track_ridge_tfridge_like(
-#     magnitude,
-#     freqs,
-#     active_bins,
-#     top_k=5,
-#     jump_penalty=1e-7,
-# ):
-#     """
-#     Track a frequency trajectory starting from the strongest active frame.
-
-#     The trajectory is tracked:
-#       1. Forward from the strongest frame
-#       2. Backward from the strongest frame
-#     """
-
-#     n_freqs, n_times = magnitude.shape
-#     freq_traj = np.full(n_times, np.nan)
-
-#     # Find all active time frames.
-#     active_indices = np.flatnonzero(active_bins)
-
-#     if len(active_indices) == 0:
-#         return freq_traj
-
-#     # Find the strongest active time frame.
-#     frame_energy = magnitude[:, active_indices].max(axis=0)
-#     seed_position = np.argmax(frame_energy)
-#     seed_time = active_indices[seed_position]
-
-#     # Find peak candidates for every active frame.
-#     candidates = []
-
-#     for t in range(n_times):
-#         if not active_bins[t]:
-#             candidates.append(np.array([], dtype=int))
-#             continue
-
-#         peak_indices, _ = find_peaks(magnitude[:, t])
-
-#         # If find_peaks finds nothing, use the strongest frequency bin.
-#         if len(peak_indices) == 0:
-#             peak_indices = np.array([np.argmax(magnitude[:, t])])
-
-#         # Keep only the strongest top_k peaks.
-#         peak_strengths = magnitude[peak_indices, t]
-#         strongest_order = np.argsort(peak_strengths)[::-1][:top_k]
-#         candidates.append(peak_indices[strongest_order])
-
-#     # Initialize the trajectory at the strongest frame.
-#     seed_candidates = candidates[seed_time]
-
-#     if len(seed_candidates) == 0:
-#         return freq_traj
-
-#     seed_amplitudes = magnitude[seed_candidates, seed_time]
-#     seed_index = seed_candidates[np.argmax(seed_amplitudes)]
-#     freq_traj[seed_time] = freqs[seed_index]
-
-#     # ---------------------------------------------------------
-#     # Track forward from the strongest frame.
-#     # ---------------------------------------------------------
-#     previous_frequency = freq_traj[seed_time]
-
-#     for t in range(seed_time + 1, n_times):
-#         if not active_bins[t]:
-#             continue
-
-#         frame_candidates = candidates[t]
-
-#         if len(frame_candidates) == 0:
-#             continue
-
-#         candidate_freqs = freqs[frame_candidates]
-#         candidate_amplitudes = magnitude[frame_candidates, t]
-
-#         scores = (
-#             candidate_amplitudes
-#             - jump_penalty * np.abs(candidate_freqs - previous_frequency)
-#         )
-
-#         best_candidate = frame_candidates[np.argmax(scores)]
-#         freq_traj[t] = freqs[best_candidate]
-#         previous_frequency = freq_traj[t]
-
-#     # ---------------------------------------------------------
-#     # Track backward from the strongest frame.
-#     # ---------------------------------------------------------
-#     previous_frequency = freq_traj[seed_time]
-
-#     for t in range(seed_time - 1, -1, -1):
-#         if not active_bins[t]:
-#             continue
-
-#         frame_candidates = candidates[t]
-
-#         if len(frame_candidates) == 0:
-#             continue
-
-#         candidate_freqs = freqs[frame_candidates]
-#         candidate_amplitudes = magnitude[frame_candidates, t]
-
-#         scores = (
-#             candidate_amplitudes
-#             - jump_penalty * np.abs(candidate_freqs - previous_frequency)
-#         )
-
-#         best_candidate = frame_candidates[np.argmax(scores)]
-#         freq_traj[t] = freqs[best_candidate]
-#         previous_frequency = freq_traj[t]
-
-#     return freq_traj
-
-# def track_ridge_tfridge_like(mag_usv, freqs_usv, active_bins, top_k=5, jump_penalty=1e-9):
-#     n_freq, n_time = mag_usv.shape
-#     candidates = []
-
-#     for t in range(n_time):
-#         if not active_bins[t]:
-#             candidates.append([])
-#             continue
-
-#         peaks, props = find_peaks(mag_usv[:, t])
-#         if len(peaks) == 0:
-#             peaks = np.array([np.argmax(mag_usv[:, t])])
-
-#         amps = mag_usv[peaks, t]
-#         best = peaks[np.argsort(amps)[-top_k:]]
-#         candidates.append(best)
-
-#     ridge = np.zeros(n_time)
-
-#     prev_freq = None
-
-#     for t in range(n_time):
-#         if len(candidates[t]) == 0:
-#             prev_freq = None
-#             continue
-
-#         best_score = -np.inf
-#         best_freq = 0
-
-#         for idx in candidates[t]:
-#             f = freqs_usv[idx]
-#             amp_score = np.log(mag_usv[idx, t] + 1e-12)
-
-#             if prev_freq is None:
-#                 continuity_score = 0
-#             else:
-#                 continuity_score = -jump_penalty * (f - prev_freq) ** 2
-
-#             score = amp_score + continuity_score
-
-#             if score > best_score:
-#                 best_score = score
-#                 best_freq = f
-
-#         ridge[t] = best_freq
-#         prev_freq = best_freq
-
-#     return ridge
-
 
 def get_main_freq_traj(
     audio_path,
@@ -597,6 +441,13 @@ def get_main_freq_traj(
     #  Extend each detected vocalization by 2 frames on each side
     active_bins = binary_dilation(active_bins, structure=np.ones(5))
 
+    active_indices = np.flatnonzero(active_bins)
+
+    if len(active_indices) > 0:
+        first_active = active_indices[0]
+        last_active = active_indices[-1]
+        active_bins[first_active:last_active + 1] = True
+
     freq_traj = np.full(mag_usv.shape[1], silence_value, dtype=float)
 
     # Only run argmax where we thjnk there is real signal
@@ -609,42 +460,14 @@ def get_main_freq_traj(
 #     jump_penalty=1e-9
 # )
         freq_traj = track_ridge_tfridge_like(
-    magnitude=mag_usv,
-    freqs=freqs_usv,
-    active_bins=active_bins,
-    top_k=8,
-    jump_penalty=0.02,
-    max_jump_hz=None,
-)
+            magnitude=mag_usv,
+            freqs=freqs_usv,
+            active_bins=active_bins,
+            top_k=8,
+            jump_penalty=0.25,
+            max_jump_hz=None,
+        )
 
-    
-    # backward_frames = 5
-
-    # active_indices = np.flatnonzero(active_bins)
-
-    # if len(active_indices) > 0:
-    #     starts = active_indices[
-    #         np.r_[True, np.diff(active_indices) > 1]
-    #     ]
-
-    # for start in starts:
-    #     new_start = max(0, start - backward_frames)
-    #     active_bins[new_start:start] = True
-
-    # Remove isolated impossible jumps
-    # for i in range(1, len(freq_traj) - 1):
-    #     prev_f = freq_traj[i - 1]
-    #     curr_f = freq_traj[i]
-    #     next_f = freq_traj[i + 1]
-
-    #     if prev_f == silence_value or curr_f == silence_value or next_f == silence_value:
-    #         continue
-
-    #     if (
-    #         abs(curr_f - prev_f) > jump_threshold_hz
-    #         and abs(curr_f - next_f) > jump_threshold_hz
-    #     ):
-    #         freq_traj[i] = (prev_f + next_f) / 2
 
     return times, freq_traj, active_bins
 
@@ -718,7 +541,7 @@ def show_spectrogram_batch(
 
     return batch_df
 
-
+#CSV version
 def export_mft(audio_path, output_dir):
     """
     Extract and save the MFT for a single WAV file.
@@ -740,3 +563,146 @@ def export_mft(audio_path, output_dir):
     df.to_csv(output_file, index=False)
 
     return output_file
+
+#Pickle version for Dr. tripp
+def export_mft_pickle(audio_files, output_file):
+    """
+    Export MFT contours for multiple audio files into a single pickle file.
+    """
+
+    contours = {}
+
+    for audio_path in audio_files:
+        times, freq_traj, active_bins = get_main_freq_traj(audio_path)
+
+        # Keep only the active portion of the contour
+        contours[Path(audio_path).stem] = {
+            "time_s": times[active_bins],
+            "frequency_hz": freq_traj[active_bins],
+        }
+
+    with open(output_file, "wb") as f:
+        pickle.dump(contours, f)
+
+    return output_file
+
+
+
+
+
+
+
+
+def check_mft_quality(
+    audio_path,
+    large_jump_hz=15_000,
+    reversal_window=5,
+    min_active_points=8,
+):
+    """
+    Flag suspicious MFTs without treating every legitimate
+    frequency jump as an error.
+    """
+
+    times, freq_traj, active_bins = get_main_freq_traj(audio_path)
+
+    active_freq = np.asarray(freq_traj[active_bins], dtype=float)
+    reasons = []
+
+    if len(active_freq) == 0:
+        return ["no_contour"]
+
+    if np.any(~np.isfinite(active_freq)):
+        reasons.append("contains_nan")
+
+    valid_freq = active_freq[
+        np.isfinite(active_freq) & (active_freq > 0)
+    ]
+
+    if len(valid_freq) < min_active_points:
+        reasons.append("too_short")
+        return sorted(set(reasons))
+
+    frequency_changes = np.diff(valid_freq)
+
+    jump_indices = np.flatnonzero(
+        np.abs(frequency_changes) >= large_jump_hz
+    )
+
+    # Do not flag one large jump by itself.
+    # Real frequency-jump syllables commonly contain one jump.
+
+    for i in range(len(jump_indices)):
+        first_index = jump_indices[i]
+        first_change = frequency_changes[first_index]
+
+        for j in range(i + 1, len(jump_indices)):
+            second_index = jump_indices[j]
+
+            # Only compare jumps that occur close together.
+            if second_index - first_index > reversal_window:
+                break
+
+            second_change = frequency_changes[second_index]
+
+            # Large drop followed by large rise, or vice versa.
+            if np.sign(first_change) != np.sign(second_change):
+                reasons.append("jump_reversal")
+                break
+
+        if "jump_reversal" in reasons:
+            break
+
+    # Several large jumps close together are also suspicious,
+    # even when they do not alternate perfectly.
+    for start in range(len(frequency_changes)):
+        end = min(
+            start + reversal_window,
+            len(frequency_changes),
+        )
+
+        jumps_in_window = np.sum(
+            np.abs(frequency_changes[start:end]) >= large_jump_hz
+        )
+
+        if jumps_in_window >= 2:
+            reasons.append("multiple_nearby_jumps")
+            break
+
+    return sorted(set(reasons))
+
+def flag_mft_dataset(
+    audio_files,
+    output_csv="flagged_mfts.csv",
+):
+    """
+    Check all audio files and save suspicious contours for manual review.
+    """
+
+    rows = []
+
+    for audio_path in audio_files:
+        try:
+            reasons = check_mft_quality(audio_path)
+
+            if reasons:
+                rows.append({
+                    "filename": Path(audio_path).name,
+                    "full_path": str(audio_path),
+                    "reasons": "; ".join(reasons),
+                })
+
+        except Exception as exc:
+            rows.append({
+                "filename": Path(audio_path).name,
+                "full_path": str(audio_path),
+                "reasons": f"error: {type(exc).__name__}: {exc}",
+            })
+
+    flagged_df = pd.DataFrame(rows)
+    flagged_df.to_csv(output_csv, index=False)
+
+    print(f"Flagged {len(flagged_df)} files.")
+    print(f"Saved to: {output_csv}")
+
+    return flagged_df
