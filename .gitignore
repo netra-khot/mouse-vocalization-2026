@@ -34,10 +34,3 @@ Thumbs.db
 env/
 ENV/
 config.py
-data_prep/usv_contours.pkl
-dataset_preparation/usv_contours.pkl
-
-data_prep/usv_contours.pkl
-dataset_preparation/usv_contours.pkl
-data.zip
-data.zip
