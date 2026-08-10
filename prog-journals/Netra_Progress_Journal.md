@@ -1,4 +1,5 @@
 # Netra's Progress Journal #
+- add amplitude to .csv files or contours file
 ## ENTRY 20 &rarr; 07/31/2026 (1 hour)
 ### 9:00pm - 10:00pm
 - saved all contours to a pickle file
