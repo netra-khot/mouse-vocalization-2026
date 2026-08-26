@@ -1,5 +1,23 @@
 # Ziya's Progress Journal
 
+## Aug 25, 2026
+**Duration: 1 hr**
+
+- Made notes from the 8/10 call transcript (on Google Drive)
+    - Looked into PCA (principal component analysis) that Dr. Tripp was talking about
+- Wasn't able to access the data folder for some reason
+    - Fixed issue with path in my config.py file
+- Fixed issue with pandas import in the data utils.py
+- Made pca.ipynb and started exploring some stuff
+    - Used your export_mft() on 50 files, only 38 succeeded (look into this?)
+    - Resampled traj to 100 pts to make them comparale for pca
+    - Ran pca on raw trajectories: PC1 alone explained ~96% of variance, which was like really suspiciously good
+    - Checked if PC1 was just tracking overall pitch level and it was
+        - There was a near perfect linear relationship between mean-freq and pc1 score
+    - Re-ran PCA after centering each traj (removing its own mean pitch first)
+        - Much more reasonable spread: 3 components to reach ~91%, 4-5 to reach ~95%
+        - Confirms shape variation is meaningfully more complex than just pitch level alone
+
 ## Jul 30, 2026
 **Duration: 53 min**
 
