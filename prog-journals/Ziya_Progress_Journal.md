@@ -17,6 +17,7 @@
     - Re-ran PCA after centering each traj (removing its own mean pitch first)
         - Much more reasonable spread: 3 components to reach ~91%, 4-5 to reach ~95%
         - Confirms shape variation is meaningfully more complex than just pitch level alone
+- Updated settings.json
 
 ## Jul 30, 2026
 **Duration: 53 min**
