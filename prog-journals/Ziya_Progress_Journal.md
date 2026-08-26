@@ -35,7 +35,7 @@
     - Tracking the beta value for the glottal/tracheal diameter ratio (could be problematic in the future)
 - First full confirmation that the entire pipeline can actually learn a target end to end
 - Still using synthetic data for now
-
+- use RMSE for error instead of MSE
 ## Jul 29, 2026
 **Duration: 2 hrs 3 min**
 
