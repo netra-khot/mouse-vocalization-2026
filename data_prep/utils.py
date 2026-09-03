@@ -190,11 +190,6 @@ def track_ridge_tfridge_like(
     if len(active_indices) == 0:
         return freq_traj
 
-    # ---------------------------------------------------------
-    # Split active frames into separate contiguous segments.
-    # This prevents the tracker from connecting vocalizations
-    # across silence.
-    # ---------------------------------------------------------
     split_locations = np.where(np.diff(active_indices) > 1)[0] + 1
     active_segments = np.split(active_indices, split_locations)
 
@@ -214,22 +209,18 @@ def track_ridge_tfridge_like(
             segment_max_amplitude + 1e-12
         )
 
-        # -----------------------------------------------------
-        # Find candidate spectral peaks in every frame.
-        # -----------------------------------------------------
         for t in segment_times:
 
             spectrum = magnitude[:, t]
 
             peaks, _ = find_peaks(spectrum)
 
-            # If no local peak exists, use the strongest bin.
+            # if no local peak exists --> use strongest bin
             if len(peaks) == 0:
                 peaks = np.array([np.argmax(spectrum)])
 
             peak_amplitudes = spectrum[peaks]
 
-            # Retain only the strongest top_k candidates.
             strongest_order = np.argsort(peak_amplitudes)[::-1][:top_k]
             peaks = peaks[strongest_order]
             peak_amplitudes = peak_amplitudes[strongest_order]
@@ -241,9 +232,6 @@ def track_ridge_tfridge_like(
                 - segment_max_db
             )
 
-
-            # Strong candidates are close to 0 dB.
-            # Weak competing ridges remain strongly negative.
             candidate_score = np.clip(
                 candidate_db,
                 -60.0,
@@ -254,12 +242,9 @@ def track_ridge_tfridge_like(
 
         number_of_frames = len(segment_times)
 
-        # best_scores[i][j] is the best total score ending at
-        # candidate j in segment frame i.
         best_scores = [None] * number_of_frames
         backpointers = [None] * number_of_frames
 
-        # All candidates in the first frame are possible starting points.
         best_scores[0] = emission_scores[0].copy()
         backpointers[0] = np.full(
             len(candidate_bins[0]),
@@ -267,7 +252,6 @@ def track_ridge_tfridge_like(
             dtype=int,
         )
 
-        # Forward dynamic-programming pass.
         for i in range(1, number_of_frames):
 
             current_candidates = candidate_bins[i]
@@ -324,7 +308,6 @@ def track_ridge_tfridge_like(
             best_scores[i] = current_scores
             backpointers[i] = current_backpointers
 
-        # Backtrack from the best candidate in the final frame.
         final_candidate = np.argmax(best_scores[-1])
 
         if not np.isfinite(best_scores[-1][final_candidate]):
@@ -347,7 +330,6 @@ def track_ridge_tfridge_like(
             if selected_candidates[i - 1] < 0:
                 break
 
-        # Convert selected candidate indices into frequencies.
         for i, t in enumerate(segment_times):
 
             selected_index = selected_candidates[i]
@@ -450,7 +432,7 @@ def get_main_freq_traj(
 
     freq_traj = np.full(mag_usv.shape[1], silence_value, dtype=float)
 
-    # Only run argmax where we thjnk there is real signal
+    # only run argmax where we think there is a real signal
     if np.any(active_bins):
 #         freq_traj = track_ridge_tfridge_like(
 #     mag_usv,
@@ -564,7 +546,7 @@ def export_mft(audio_path, output_dir):
 
     return output_file
 
-#Pickle version for Dr. tripp
+#Pickle version
 def export_mft_pickle(audio_files, output_file):
     """
     Export MFT contours for multiple audio files into a single pickle file.
@@ -629,9 +611,6 @@ def check_mft_quality(
         np.abs(frequency_changes) >= large_jump_hz
     )
 
-    # Do not flag one large jump by itself.
-    # Real frequency-jump syllables commonly contain one jump.
-
     for i in range(len(jump_indices)):
         first_index = jump_indices[i]
         first_change = frequency_changes[first_index]
@@ -639,7 +618,6 @@ def check_mft_quality(
         for j in range(i + 1, len(jump_indices)):
             second_index = jump_indices[j]
 
-            # Only compare jumps that occur close together.
             if second_index - first_index > reversal_window:
                 break
 
@@ -653,8 +631,6 @@ def check_mft_quality(
         if "jump_reversal" in reasons:
             break
 
-    # Several large jumps close together are also suspicious,
-    # even when they do not alternate perfectly.
     for start in range(len(frequency_changes)):
         end = min(
             start + reversal_window,
@@ -675,9 +651,6 @@ def flag_mft_dataset(
     audio_files,
     output_csv="flagged_mfts.csv",
 ):
-    """
-    Check all audio files and save suspicious contours for manual review.
-    """
 
     rows = []
 
