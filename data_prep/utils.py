@@ -9,44 +9,43 @@ from scipy.ndimage import binary_closing, binary_opening
 import matplotlib.pyplot as plt
 import pandas as pd
 
+# finds the project root based where utils.py is located in the mouse vocal 2026 folder
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+    sys.path.insert(0, str(PROJECT_ROOT)) # adds if it isnt already in sys.path
 
 from config import DATA_PATH
 import pickle
-
-# print(plt)
 
 TRAIN_PATH = Path(DATA_PATH) / "train"
 TEST_PATH = Path(DATA_PATH) / "test"
 
 
-def find_audio_file(filename):
+def find_audio_file(filename): # check if the file exists
 
     for root in [TRAIN_PATH, TEST_PATH]:
         path = root / filename
         if path.exists():
             return path
 
-    raise FileNotFoundError(f"Could not find {filename}")
+    raise FileNotFoundError(f"Could not find {filename}") # same as throw in Java
 
 
 def load_audio(wav_path, target_sr=None):
     audio, sr = sf.read(wav_path)
 
-    if audio.ndim > 1:
+    if audio.ndim > 1: # need to check whether the file has multiple audio channels
         audio = audio.mean(axis=1)
 
-    if target_sr is not None and sr != target_sr:
+    if target_sr is not None and sr != target_sr: # we only resample when a different target rate is put as param
         audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=target_sr)
-        sr = target_sr
+        sr = target_sr # update sample rate of the file
 
-    return audio.astype(np.float32), sr
+    return audio.astype(np.float32), sr # return it as a float32 array
 
 
 def bandpass_filter(audio, sr, low_hz=2500, high_hz=100000, order=3):
-    nyq = sr / 2
+    nyq = sr / 2 # this is the highest frequency that can be seen in the audio file but high_hz can't be higher than this
     high_hz = min(high_hz, nyq * 0.98)
     low_hz = min(low_hz, high_hz * 0.5)
 
@@ -66,19 +65,19 @@ def get_spectrogram(
     if hop_length is None:
         hop_length = n_fft  # 0% overlap
 
-    audio, sr = load_audio(audio_path, target_sr=target_sr)
+    audio, sr = load_audio(audio_path, target_sr=target_sr) # load and resample
 
     if apply_bandpass:
-        audio = bandpass_filter(audio, sr, low_hz=low_hz, high_hz=high_hz)
+        audio = bandpass_filter(audio, sr, low_hz=low_hz, high_hz=high_hz) # bandpass filter the audio to remove noise (only selected freq range)
 
-    S = np.abs(librosa.stft(audio, n_fft=n_fft, hop_length=hop_length, window="hamming"))
-    freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
-    times = librosa.frames_to_time(np.arange(S.shape[1]), sr=sr, hop_length=hop_length)
+    S = np.abs(librosa.stft(audio, n_fft=n_fft, hop_length=hop_length, window="hamming")) # split the audio into windows to check strength of the file
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft) # calc frequencies for each bin
+    times = librosa.frames_to_time(np.arange(S.shape[1]), sr=sr, hop_length=hop_length) # calculate time for each frame
 
     return times, freqs, S
 
 
-def quick_spectrogram(sig, sr, n_fft=1024, hop_length=128):
+def quick_spectrogram(sig, sr, n_fft=1024, hop_length=128): # makes the spectrograms we see in audio_preprocess01
     S = np.abs(
         librosa.stft(
             sig,
@@ -97,7 +96,8 @@ def quick_spectrogram(sig, sr, n_fft=1024, hop_length=128):
 
     return librosa.amplitude_to_db(S, ref=np.max), freqs, times
 
-def load_spectrogram(
+
+def load_spectrogram( # this entire method basically uses methods above to load and plot a spectrogram for given file
     filename,
     filtered=False,
     target_sr=None,
@@ -149,42 +149,11 @@ def track_ridge_tfridge_like(
     jump_penalty=0.08,
     max_jump_hz=None,
 ):
-    """
-    Track the strongest globally consistent frequency ridge using
-    dynamic programming.
-
-    Parameters
-    ----------
-    magnitude : np.ndarray
-        Spectrogram magnitude with shape:
-        (number_of_frequencies, number_of_time_frames)
-
-    freqs : np.ndarray
-        Frequency value for each spectrogram row.
-
-    active_bins : np.ndarray
-        Boolean array indicating which time frames contain a detected
-        vocalization.
-
-    top_k : int
-        Maximum number of peak candidates retained per active frame.
-
-    jump_penalty : float
-        Penalty applied per kHz of frequency movement between adjacent
-        frames. Larger values favor smoother trajectories.
-
-    max_jump_hz : float or None
-        Optional maximum allowed frequency change between adjacent frames.
-        Leave as None initially so genuine frequency jumps remain possible.
-
-    Returns
-    -------
-    np.ndarray
-        One frequency value per time frame. Inactive frames contain NaN.
-    """
 
     n_freqs, n_times = magnitude.shape
     freq_traj = np.full(n_times, np.nan, dtype=float)
+    amplitude_traj = np.full(n_times, np.nan, dtype=float) # initializing getting amplitude traj like what Dr. Tripp was talking abt
+
 
     active_indices = np.flatnonzero(active_bins)
 
@@ -284,8 +253,6 @@ def track_ridge_tfridge_like(
                     - jump_penalty * (frequency_changes_hz / 1000.0)
                 )
 
-                # Optionally prevent unrealistically large frame-to-frame
-                # jumps while still allowing normal mode transitions.
                 if max_jump_hz is not None:
                     transition_scores[
                         frequency_changes_hz > max_jump_hz
@@ -339,9 +306,10 @@ def track_ridge_tfridge_like(
                 continue
 
             frequency_bin = candidate_bins[i][selected_index]
-            freq_traj[t] = freqs[frequency_bin]
+            freq_traj[t] = freqs[frequency_bin] # storing frequency for each time point in mft
+            amplitude_traj[t] = magnitude[frequency_bin, t] # storing amplitude for each time point in mft
 
-    return freq_traj
+    return freq_traj, amplitude_traj
 
 def get_main_freq_traj(
     audio_path,
@@ -354,26 +322,6 @@ def get_main_freq_traj(
     jump_threshold_hz=5000,
     silence_value=0.0,
 ):
-    
-    """
-    Extract main frequency trajectory from a USV audio file.
-
-    This avoids hallucinating frequencies during silence by:
-    1. Computing a spectrogram.
-    2. Detecting active USV frames using spectral entropy.
-    3. Extracting the dominant frequency only in active frames.
-    4. Setting silent frames to 0.
-    5. Removing isolated jumps larger than jump_threshold_hz.
-
-    Returns
-    -------
-    times : np.ndarray
-        Time values in seconds.
-    freq_traj : np.ndarray
-        Main frequency trajectory in Hz. Silent frames are 0.
-    active_bins : np.ndarray
-        Boolean mask showing where a USV was detected.
-    """
 
     if hop_length is None:
         hop_length = n_fft  # 0% overlap, matching Håkansson-style extraction
@@ -435,14 +383,7 @@ def get_main_freq_traj(
 
     # only run argmax where we think there is a real signal
     if np.any(active_bins):
-#         freq_traj = track_ridge_tfridge_like(
-#     mag_usv,
-#     freqs_usv,
-#     active_bins,
-#     top_k=5,
-#     jump_penalty=1e-9
-# )
-        freq_traj = track_ridge_tfridge_like(
+        freq_traj, amplitude_traj = track_ridge_tfridge_like(
             magnitude=mag_usv,
             freqs=freqs_usv,
             active_bins=active_bins,
@@ -462,13 +403,6 @@ def show_spectrogram_batch(
     random_state=42,
     freq_max_khz=125,
 ):
-    """
-    Display one batch of spectrograms for visual inspection.
-
-    batch_number=0 shows files 1-20
-    batch_number=1 shows files 21-40
-    etc.
-    """
 
     shuffled_df = file_df.sample(
         frac=1,
@@ -530,11 +464,12 @@ def export_mft(audio_path, output_dir):
     Extract and save the MFT for a single WAV file.
     """
 
-    times, freq_traj, active_bins = get_main_freq_traj(audio_path)
+    times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
 
     df = pd.DataFrame({
         "time_s": times,
         "frequency_hz": freq_traj,
+        "amplitude": amplitude_traj,
         "active": active_bins.astype(int),
     })
 
@@ -556,12 +491,13 @@ def export_mft_pickle(audio_files, output_file):
     contours = {}
 
     for audio_path in audio_files:
-        times, freq_traj, active_bins = get_main_freq_traj(audio_path)
+        times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
 
         # Keep only the active portion of the contour
         contours[Path(audio_path).stem] = {
             "time_s": times[active_bins],
             "frequency_hz": freq_traj[active_bins],
+            "amplitude": amplitude_traj[active_bins],
         }
 
     with open(output_file, "wb") as f:
