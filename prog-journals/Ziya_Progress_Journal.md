@@ -1,5 +1,18 @@
 # Ziya's Progress Journal
 
+## Sep 14, 2026
+**Duration: 1 hr**
+- Took few week hiatus for school starting + SAT prep
+- Downloaded the data on my side
+    - Used flag_mfg_dataset() to flag problem files
+    - Decided to use the pkl export function instead of the normal one b/c parsing thru. the pkl will be faster than a big csv sheet
+        - Fixed bug in pkl export function w/ directory path existing (added mkdir line)
+        - Also we can more easily move the pkl between us the repo
+    - Resampled files to 100 time steps
+- Deleted the EDA notebooks from earlier this summer (hopefully that's ok, otherwise you can revert this commit)
+- Did PCA analysis on entire dataset
+- Added pkl folder where we can add our pkl files as the signal processing code is upated
+
 ## Aug 25, 2026
 **Duration: 1 hr**
 

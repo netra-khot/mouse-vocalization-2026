@@ -581,6 +581,8 @@ def export_mft_pickle(audio_files, output_file):
             "time_s": times[active_bins],
             "frequency_hz": freq_traj[active_bins],
         }
+        
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_file, "wb") as f:
         pickle.dump(contours, f)
