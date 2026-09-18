@@ -2,6 +2,11 @@
 
 ## Sep 18, 2026
 **Duration: **
+- Changed the model architecture to take pca_vector as input instead of syllable_id
+    - Still using random values for pca vector for training
+    - Don't look at the actual loss values, b/c i js used random data to check that the pipeline works
+- Started a spreadsheet documenting changes in model performance
+    - Need to organize this + make it beautiful and stuff
 - 
 
 ## Sep 14, 2026
