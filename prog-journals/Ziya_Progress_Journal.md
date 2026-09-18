@@ -1,5 +1,9 @@
 # Ziya's Progress Journal
 
+## Sep 18, 2026
+**Duration: **
+- 
+
 ## Sep 14, 2026
 **Duration: 1 hr**
 - Took few week hiatus for school starting + SAT prep
