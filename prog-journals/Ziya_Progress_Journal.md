@@ -1,13 +1,18 @@
 # Ziya's Progress Journal
 
 ## Sep 18, 2026
-**Duration: **
+**Duration: 1 hr**
 - Changed the model architecture to take pca_vector as input instead of syllable_id
     - Still using random values for pca vector for training
     - Don't look at the actual loss values, b/c i js used random data to check that the pipeline works
 - Started a spreadsheet documenting changes in model performance
     - Need to organize this + make it beautiful and stuff
-- 
+-  Reloaded the PCA model (kernel had restarted, re-ran the fast resample + fit steps from the saved trajectory pickle) 
+    - Saved it + a few sample trajectories so model.ipynb can use them without re-running the full extraction
+- Ran the first real training loop: pca_vector projected from an actual trajectory, target = that same real (uncentered) trajectory
+    - Loss dropped 194M -> ~101.6K over 300 epochs, steep early then a slower tail, still trending down at the end
+    - Higher final loss than the synthetic runs, makes sense since a real trajectory is noisier/more complex than a clean synthetic ramp
+- Next: plot predicted vs. real trajectory directly to check the model's actually tracking the real shape, and not just minimizing the loss number
 
 ## Sep 14, 2026
 **Duration: 1 hr**
