@@ -1,8 +1,8 @@
 # Ziya's Progress Journal
 
 ## Sep 19, 2026
-**Time: 6:30pm - **
-**Duration: **
+**Time: 6:30pm - 8:00pm**
+**Duration: 1.5 hrs**
 
 - Switched from MSE to RMSE loss (oops i was supposed to do this a long time ago lol)
     - 1e-4 works better with RMSE (compared to 1e-2 for MSE) --> RMSE needs lower loss
