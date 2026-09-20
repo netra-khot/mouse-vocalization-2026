@@ -5,7 +5,8 @@
 **Duration: **
 
 - Switched from MSE to RMSE loss (oops i was supposed to do this a long time ago lol)
-- 
+- Switched from Hz units to kHz on loss (easier to conceptualize)
+- Fixed some minor bugs with the training loop
 
 
 
