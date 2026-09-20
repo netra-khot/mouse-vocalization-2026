@@ -1,4 +1,9 @@
 # Netra's Progress Journal #
+## ENTRY 22 &rarr; 09/16/2026 + 09/19/26 (1 hr)
+### 8:30pm - 9:00pm
+- 
+### 11:00pm - 11:30pm
+- 
 ## ENTRY 21 &rarr; 09/07/2026 (45 mins)
 ### 9:00pm - 10:00pm
 - cleaned up utils.py (need to finish)

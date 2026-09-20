@@ -5,9 +5,11 @@ import numpy as np
 import soundfile as sf
 import librosa
 from scipy.signal import butter, sosfiltfilt, find_peaks
-from scipy.ndimage import binary_closing, binary_opening
+from scipy.ndimage import binary_closing, binary_dilation, binary_opening
 import matplotlib.pyplot as plt
 import pandas as pd
+import pickle
+import cv2
 
 # finds the project root based where utils.py is located in the mouse vocal 2026 folder
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +17,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT)) # adds if it isnt already in sys.path
 
 from config import DATA_PATH
-import pickle
 
 TRAIN_PATH = Path(DATA_PATH) / "train"
 TEST_PATH = Path(DATA_PATH) / "test"
@@ -150,7 +151,7 @@ def track_ridge_tfridge_like(
     max_jump_hz=None,
 ):
 
-    n_freqs, n_times = magnitude.shape
+    n_times = magnitude.shape[1]
     freq_traj = np.full(n_times, np.nan, dtype=float)
     amplitude_traj = np.full(n_times, np.nan, dtype=float) # initializing getting amplitude traj like what Dr. Tripp was talking abt
 
@@ -158,7 +159,7 @@ def track_ridge_tfridge_like(
     active_indices = np.flatnonzero(active_bins)
 
     if len(active_indices) == 0:
-        return freq_traj
+        return freq_traj, amplitude_traj
 
     split_locations = np.where(np.diff(active_indices) > 1)[0] + 1
     active_segments = np.split(active_indices, split_locations)
@@ -319,7 +320,6 @@ def get_main_freq_traj(
     hop_length=128,
     entropy_threshold=0.72,
     min_active_bins=2,
-    jump_threshold_hz=5000,
     silence_value=0.0,
 ):
 
@@ -337,10 +337,10 @@ def get_main_freq_traj(
     mag_usv = magnitude[freq_mask, :]
 
     if mag_usv.size == 0:
-        return times, np.full_like(times, silence_value), np.zeros_like(times, dtype=bool)
-    
-    # frame_energy = mag_usv.max(axis=0)
-    # seed = np.argmax(frame_energy * active_bins)
+        freq_traj = np.full_like(times, silence_value)
+        amplitude_traj = np.zeros_like(times)
+        active_bins = np.zeros_like(times, dtype=bool)
+        return times, freq_traj, amplitude_traj, active_bins
 
     power = mag_usv ** 2
     prob = power / (np.sum(power, axis=0, keepdims=True) + 1e-12)
@@ -349,8 +349,6 @@ def get_main_freq_traj(
 
     # Normalize entropy to [0, 1]
     entropy = entropy / np.log2(prob.shape[0])
-
-    from scipy.ndimage import binary_opening, binary_closing, binary_dilation
 
     # Smooth entropy over 3 frames
     if len(entropy) >= 3:
@@ -361,8 +359,6 @@ def get_main_freq_traj(
     # Initial entropy detection
     active_bins = entropy_smooth < entropy_threshold
 
-    
-
     # Remove isolated detections
     active_bins = binary_opening(active_bins, structure=np.ones(min_active_bins))
 
@@ -372,14 +368,8 @@ def get_main_freq_traj(
     #  Extend each detected vocalization by 2 frames on each side
     active_bins = binary_dilation(active_bins, structure=np.ones(5))
 
-    active_indices = np.flatnonzero(active_bins)
-
-    if len(active_indices) > 0:
-        first_active = active_indices[0]
-        last_active = active_indices[-1]
-        active_bins[first_active:last_active + 1] = True
-
     freq_traj = np.full(mag_usv.shape[1], silence_value, dtype=float)
+    amplitude_traj = np.full(mag_usv.shape[1], silence_value, dtype=float)
 
     # only run argmax where we think there is a real signal
     if np.any(active_bins):
@@ -393,7 +383,7 @@ def get_main_freq_traj(
         )
 
 
-    return times, freq_traj, active_bins
+    return times, freq_traj, amplitude_traj, active_bins
 
 
 def show_spectrogram_batch(
@@ -508,12 +498,6 @@ def export_mft_pickle(audio_files, output_file):
     return output_file
 
 
-
-
-
-
-
-
 def check_mft_quality(
     audio_path,
     large_jump_hz=15_000,
@@ -525,7 +509,7 @@ def check_mft_quality(
     frequency jump as an error.
     """
 
-    times, freq_traj, active_bins = get_main_freq_traj(audio_path)
+    _, freq_traj, _, active_bins = get_main_freq_traj(audio_path)
 
     active_freq = np.asarray(freq_traj[active_bins], dtype=float)
     reasons = []
@@ -618,3 +602,28 @@ def flag_mft_dataset(
     print(f"Saved to: {output_csv}")
 
     return flagged_df
+
+
+def get_cv_freq_traj(path, threshold_db=-35):
+    audio, sr = load_audio(path, target_sr=240000)
+    audio = bandpass_filter(audio, sr)
+
+    S_db, freqs, times = quick_spectrogram(audio, sr)
+    S = librosa.db_to_amplitude(S_db)
+
+    mask = (S_db > threshold_db).astype(np.uint8) * 255
+    kernel = np.ones((3, 3), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+    freq_traj = np.full(len(times), np.nan)
+    amplitude_traj = np.full(len(times), np.nan)
+
+    for t in range(len(times)):
+        rows = np.flatnonzero(mask[:, t])
+        if len(rows):
+            bin_index = rows[np.argmax(S[rows, t])]
+            freq_traj[t] = freqs[bin_index]
+            amplitude_traj[t] = S[bin_index, t]
+
+    return times, freq_traj, amplitude_traj
