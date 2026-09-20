@@ -11,8 +11,6 @@
 - Switched from Hz units to kHz on loss (easier to conceptualize)
 - Fixed some minor bugs with the training loop
 
-
-
 ## Sep 18, 2026
 **Duration: 1 hr**
 
