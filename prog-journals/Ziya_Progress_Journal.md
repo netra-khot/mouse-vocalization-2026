@@ -5,6 +5,9 @@
 **Duration: **
 
 - Switched from MSE to RMSE loss (oops i was supposed to do this a long time ago lol)
+    - 1e-4 works better with RMSE (compared to 1e-2 for MSE) --> RMSE needs lower loss
+        - but, it plateued @ 0.96 kHz RMSE
+    - 1e-3 produces the best results -> 0.35kHz RMSE
 - Switched from Hz units to kHz on loss (easier to conceptualize)
 - Fixed some minor bugs with the training loop
 
