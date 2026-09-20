@@ -1,7 +1,17 @@
 # Ziya's Progress Journal
 
+## Sep 19, 2026
+**Time: 6:30pm - **
+**Duration: **
+
+- Switched from MSE to RMSE loss (oops i was supposed to do this a long time ago lol)
+- 
+
+
+
 ## Sep 18, 2026
 **Duration: 1 hr**
+
 - Changed the model architecture to take pca_vector as input instead of syllable_id
     - Still using random values for pca vector for training
     - Don't look at the actual loss values, b/c i js used random data to check that the pipeline works
@@ -16,6 +26,7 @@
 
 ## Sep 14, 2026
 **Duration: 1 hr**
+
 - Took few week hiatus for school starting + SAT prep
 - Downloaded the data on my side
     - Used flag_mfg_dataset() to flag problem files
@@ -64,6 +75,7 @@
 - First full confirmation that the entire pipeline can actually learn a target end to end
 - Still using synthetic data for now
 - use RMSE for error instead of MSE
+
 ## Jul 29, 2026
 **Duration: 2 hrs 3 min**
 
@@ -93,7 +105,7 @@
 
 
 ## Jul 20-27, 2026
-**Duration:** ~3 hrs, unsure b/c it wasn't on VSCode (no WakaTime tracking)
+**Duration: ~3 hrs**, unsure b/c it wasn't on VSCode (no WakaTime tracking)
 
 - Updating this late b/c I forgot :(
 - Did some research into what building the model will entail
@@ -113,7 +125,7 @@
         - Means that it can be backpropogated through
 
 ## Jul 20, 2026
-**Duration:** 1h 45m
+**Duration: 1h 45m**
 
 - Ported 3 more files
     - airflow, USVfreq, jet_speed
@@ -124,7 +136,7 @@
     - I did edit the Hakanssons MATLAB code for this but nothing that would change the actual values
 
 ## Jul 19, 2026
-**Duration:** 1h 45m
+**Duration: 1h 45m**
 
 - Oopsies I have not updated this in a while
 - Ported 3 files in the QMC_mouseUSV repo
@@ -137,7 +149,7 @@
 - Verified all the ported files against their MATLAB counterparts
 
 ## Jul 1, 2026
-**Duration:** 1h
+**Duration: 1h**
 
 - Worked with the forked QMC_ratUSV repo
 - Trying to go from MATLAB -> PyTorch
@@ -155,7 +167,7 @@
         - Will email Dr. Tripp by tmrw if it looks like a dead end
 
 ## June 29, 2026
-**Duration:** 3 h
+**Duration: 3 h**
 
 - More breakdown of contents in Dryad dataset
     - USV recordings: 65
@@ -173,7 +185,7 @@
             - Currently, I think it's hallucinating a pattern when there's really just no vocalization in the clip
 
 ## June 27, 2026
-**Duration:**  1 h
+**Duration: 1 h**
 
 - Downloaded the dryad dataset
     - Added it to this folder (+ sent ZIP to netra)
@@ -185,7 +197,7 @@
 ## June 22, 2026
 **Time:** 4:30pm-5:30pm
 
-**Duration:**  1 h
+**Duration: 1 h**
 
 - Verified that we're working with the audio files (not LFS pointers)
 - Played around with more EDA stuff
@@ -199,7 +211,7 @@
 ## June 18, 2026
 **Time:** 2:00pm–4:45pm
 
-**Duration:** 2h 45m
+**Duration: 2h 45m**
  
 - Set up Git/GitHub workflow (cloning, gitignore, branches, tried working w/ LFS for large files)
 - Resolved dataset access by pulling real audio from BiWaveGAN GitLab repo via Git LFS
