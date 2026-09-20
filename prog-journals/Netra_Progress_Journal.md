@@ -1,5 +1,10 @@
 # Netra's Progress Journal #
-- add amplitude to .csv files or contours file
+## ENTRY 21 &rarr; 09/07/2026 (45 mins)
+### 9:00pm - 10:00pm
+- cleaned up utils.py (need to finish)
+- incorporated amplitude when loading and saving mfts --> explain how this works
+    - csvs and pickle export file should now include amplitude at every time point
+- need to make sure it works but it's a start to a long slump!!
 ## ENTRY 20 &rarr; 07/31/2026 (1 hour)
 ### 9:00pm - 10:00pm
 - saved all contours to a pickle file
