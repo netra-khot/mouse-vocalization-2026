@@ -9,7 +9,7 @@ from scipy.ndimage import binary_closing, binary_dilation, binary_opening
 import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
-import cv2
+#import cv2 # -> wait whats this? i dont have it on my side and it causes pca to throw error
 
 # finds the project root based where utils.py is located in the mouse vocal 2026 folder
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

@@ -1,5 +1,9 @@
 # Ziya's Progress Journal
 
+## Sep 20, 2026
+**Duration: **
+- 
+
 ## Sep 19, 2026
 **Time: 6:30pm - 8:00pm**
 **Duration: 1.5 hrs**
