@@ -1,7 +1,7 @@
 # Ziya's Progress Journal
 
 ## Sep 20, 2026
-**Duration: **
+**Duration: 2 hrs 40 min**
 - Drafted email resposne to Dr. Tripp on our availability
 - Estimated the full-dataset training loop w/ small amount of spectrograms, ~3.7 min/epoch estimated
     - Added batches (most optimal was batch_size = 128), which cut down the training time to ~0.15 min/epoch, ~15x faster
