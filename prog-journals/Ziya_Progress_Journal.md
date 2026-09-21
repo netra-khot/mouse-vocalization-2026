@@ -8,6 +8,14 @@
     - Decided GPU isn't needed for now
         - Looked into GPU options anyways b/c we'll likely need it in the future
             - Researched options beyond Google Colab: Lambda Labs, RunPod, Vast.ai
+- Ran the first actual full-dataset training lop (~19.5k trajectories, 10 epochs):
+    - Noticed the run was wayy slower than the estimate predicted
+        - Traced issue to prepare_batch calling PCA's .transform() 1x per traj, instead of 1x per batch
+    - Went from 10.2kHz RMSE to 9.0 kHz RMSE
+        - **I think the main issue was with removing the pitch from the spectrograms --> need to look more into this**
+- Tried running 50 epochs (idk why i even did this lol)
+    - yeah the results were bad it went from 10.5 kHz RMSE to 8.89 kHz RMSE
+        - for perspective, a respectable loss would be like >1 kHz RMSE, and really good would be > 0.5 kHz RMSE
 
 ## Sep 19, 2026
 **Time: 6:30pm - 8:00pm**
