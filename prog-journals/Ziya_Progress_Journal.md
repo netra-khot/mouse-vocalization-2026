@@ -2,7 +2,12 @@
 
 ## Sep 20, 2026
 **Duration: **
-- 
+- Drafted email resposne to Dr. Tripp on our availability
+- Estimated the full-dataset training loop w/ small amount of spectrograms, ~3.7 min/epoch estimated
+    - Added batches (most optimal was batch_size = 128), which cut down the training time to ~0.15 min/epoch, ~15x faster
+    - Decided GPU isn't needed for now
+        - Looked into GPU options anyways b/c we'll likely need it in the future
+            - Researched options beyond Google Colab: Lambda Labs, RunPod, Vast.ai
 
 ## Sep 19, 2026
 **Time: 6:30pm - 8:00pm**
