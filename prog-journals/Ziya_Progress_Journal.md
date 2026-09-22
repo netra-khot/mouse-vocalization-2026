@@ -1,5 +1,9 @@
 # Ziya's Progress Journal
 
+## Sep 21, 2026
+**Duration: min**
+- 
+
 ## Sep 20, 2026
 **Duration: 2 hrs 40 min**
 - Drafted email resposne to Dr. Tripp on our availability
