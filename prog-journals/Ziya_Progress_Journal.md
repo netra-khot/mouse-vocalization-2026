@@ -1,8 +1,16 @@
 # Ziya's Progress Journal
 
 ## Sep 21, 2026
-**Duration: min**
-- 
+**Duration: 45 min**
+- Think I diagnosed the full-dataset training plateau (~8.9-9.0 kHz RMSE)
+    - Ruled out the missing pitch info -> added mean-pitch feature, didn't change anything
+    - Ruled out lr -> tried ablations w/ diff lr values (1e-2, 1e-3, 1e-4 -> 1e-3 was best)
+    - Ruled out model capacity -> doubled hidden_dim, plateau stayed the same
+- Plotted predicted vs. real trajectories, found the model outputs a near-flat line close to the dataset average
+    - Basically ignored input entirely
+- Checked PCA vectors directly, confirmed that yes they do vary meaningfully across trajectories, so it's not really a data problem
+- Likely cause could be PCA vectors are unnormalized, probably saturates the sigmoid output layer
+- Next session: normalize the PCA vectors before training the model on them
 
 ## Sep 20, 2026
 **Duration: 2 hrs 40 min**
