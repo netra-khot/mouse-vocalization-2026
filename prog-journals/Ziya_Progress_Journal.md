@@ -1,5 +1,10 @@
 # Ziya's Progress Journal
 
+## To-Do List
+- Add train-test split (save this somewhere?)
+- Add amplitude as an extra features (what other features could be added?)
+- Review signal processing code + refined based on application performance
+
 ## Sep 22, 2026
 **Duration: min**
 
