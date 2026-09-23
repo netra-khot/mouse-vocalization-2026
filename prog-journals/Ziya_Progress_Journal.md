@@ -10,9 +10,10 @@
 - Check where the model plateaus
     - Still isn't converging @ 50 epochs
 - How can we visualize the PCA dimensions? is that even possible?
+- Need to make beautiful model tracker (high priority -> do this next time!)
 
 ## Sep 22, 2026
-**Duration: min**
+**Duration: 1 hr 43 min**
 - Found + fixed the cause of the learning plateau
     - PCA vectors were unnormalized, which saturated the model's sigmoid output layer
     - Added a StandardScaler on the PCA vectors before feeding them into the model
