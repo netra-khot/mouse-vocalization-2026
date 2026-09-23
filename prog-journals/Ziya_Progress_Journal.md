@@ -11,9 +11,17 @@
     - Still isn't converging @ 50 epochs
 - How can we visualize the PCA dimensions? is that even possible?
 - Need to make beautiful model tracker (high priority -> do this next time!)
+- Try different loss functions?
+
+## Sep 23, 2026
+**Duration: 45 min**
+
+- Setup model performance tracker Google Sheet
+    - [spreadsheet here](https://docs.google.com/spreadsheets/d/1Aic5kjMXGCXN6PP5f9w_ca8JSVuLZ6t6upZklDULCsI/edit?gid=0#gid=0)
 
 ## Sep 22, 2026
 **Duration: 1 hr 43 min**
+
 - Found + fixed the cause of the learning plateau
     - PCA vectors were unnormalized, which saturated the model's sigmoid output layer
     - Added a StandardScaler on the PCA vectors before feeding them into the model
@@ -31,6 +39,7 @@
 
 ## Sep 21, 2026
 **Duration: 45 min**
+
 - Think I diagnosed the full-dataset training plateau (~8.9-9.0 kHz RMSE)
     - Ruled out the missing pitch info -> added mean-pitch feature, didn't change anything
     - Ruled out lr -> tried ablations w/ diff lr values (1e-2, 1e-3, 1e-4 -> 1e-3 was best)
@@ -43,6 +52,7 @@
 
 ## Sep 20, 2026
 **Duration: 2 hrs 40 min**
+
 - Drafted email resposne to Dr. Tripp on our availability
 - Estimated the full-dataset training loop w/ small amount of spectrograms, ~3.7 min/epoch estimated
     - Added batches (most optimal was batch_size = 128), which cut down the training time to ~0.15 min/epoch, ~15x faster
