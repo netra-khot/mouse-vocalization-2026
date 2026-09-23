@@ -5,9 +5,28 @@
 - Review signal processing code + refined based on application performance
 - Could try compressing it spectrograms to more than 10 components?
     - I think 13 might be needed for 95%> variance explained
+- Could play with ablations some more
+    - lr, batch size (could be diff w/ normalized pca vectors)
+- Check where the model plateaus
+    - Still isn't converging @ 50 epochs
+- How can we visualize the PCA dimensions? is that even possible?
 
 ## Sep 22, 2026
 **Duration: min**
+- Found + fixed the cause of the learning plateau
+    - PCA vectors were unnormalized, which saturated the model's sigmoid output layer
+    - Added a StandardScaler on the PCA vectors before feeding them into the model
+- Full-dataset RMSE dropped from ~9 kHz plateau to <2 kHz w/i 25 epochs
+    - Not plateauing early anymore, need to test to see at what point it plateaus
+- Checked predicted vs. real trajectories after fixing pca vectors normalization
+    - Model tracks rise/fall shape & timed relatively well on curved calls
+    - Still imposes similar arc on flat calls for some reason?
+- Used the datasets premade 90-10 train-test split
+    - Exported test_contours.pkl
+    - sep_14_contours.pkl -> renamed to train_contours.pkl
+- Consolidated prepare_example into prepare_batch (they were like redundant)
+- Added evaluate() funciton to track test-set RMSE w/ the train RMSE for each epoch (to check for overfitting)
+- Added to-do list! (its like right above this)
 
 ## Sep 21, 2026
 **Duration: 45 min**
