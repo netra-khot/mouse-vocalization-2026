@@ -1,5 +1,8 @@
 # Ziya's Progress Journal
 
+## Sep 22, 2026
+**Duration: min**
+
 ## Sep 21, 2026
 **Duration: 45 min**
 - Think I diagnosed the full-dataset training plateau (~8.9-9.0 kHz RMSE)
