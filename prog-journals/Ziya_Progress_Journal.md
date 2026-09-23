@@ -1,9 +1,10 @@
 # Ziya's Progress Journal
 
 ## To-Do List
-- Add train-test split (save this somewhere?)
 - Add amplitude as an extra features (what other features could be added?)
 - Review signal processing code + refined based on application performance
+- Could try compressing it spectrograms to more than 10 components?
+    - I think 13 might be needed for 95%> variance explained
 
 ## Sep 22, 2026
 **Duration: min**
