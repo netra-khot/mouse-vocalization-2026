@@ -9,7 +9,7 @@ class LSTMController(nn.Module):
 
     # unsure on the seq_len
     # could try changing hidden_dim to 32...
-    def __init__(self, pca_dim=10, embedding_dim=16, hidden_dim=128, seq_len=100):
+    def __init__(self, pca_dim=11, embedding_dim=16, hidden_dim=128, seq_len=100):
         super().__init__()
         self.seq_len = seq_len
 
