@@ -13,15 +13,22 @@
 - Try different loss functions?
 - Look into fixing rigid form of the spectrograms -> created as a result of the 100 timesteps?
 - Splitting up spectrograms into their specific vocalizations
-- Redownload the testing pkl files
+- Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 
 ## Sep 24, 2026
-**Duration: 1 hr min**
+**Duration: 1 hr 30 min**
 - Added pca vector visualization diagram
     - Interactive!!
     - Can click on point to see the spectrogram
     - Wait the visualization actually looks somewhat promising
 - Redownloaded the training pkl files for amplitude feature (took a while)
+- Amplitude does not correlate with any of the top three features
+- Duration has 0.461 correlation with PC1
+    - More a result of how we resampled the spectrograms
+    - Longer spectrograms will have more room for freq. to vary
+        - Gets compressed, creates greater derivative at every point on curve
+    - Shorter spectrograms have less room to vary
+        - When it gets compressed it'll have a comparably smaller deriv @ each pt on avg
 
 ## Sep 23, 2026
 **Duration: 45 min**
