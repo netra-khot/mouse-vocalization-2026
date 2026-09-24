@@ -12,6 +12,7 @@
 - How can we visualize the PCA dimensions? is that even possible?
 - Need to make beautiful model tracker (high priority -> do this next time!)
 - Try different loss functions?
+- Look into fixing rigid form of the spectrograms -> created as a result of the 100 timesteps?
 
 ## Sep 23, 2026
 **Duration: 45 min**
