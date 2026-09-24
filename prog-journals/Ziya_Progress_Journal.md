@@ -13,10 +13,15 @@
 - Try different loss functions?
 - Look into fixing rigid form of the spectrograms -> created as a result of the 100 timesteps?
 - Splitting up spectrograms into their specific vocalizations
+- Redownload the testing pkl files
 
 ## Sep 24, 2026
-**Duration: 30 min**
-- 
+**Duration: 1 hr min**
+- Added pca vector visualization diagram
+    - Interactive!!
+    - Can click on point to see the spectrogram
+    - Wait the visualization actually looks somewhat promising
+- Redownloaded the training pkl files for amplitude feature (took a while)
 
 ## Sep 23, 2026
 **Duration: 45 min**
