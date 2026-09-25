@@ -1,9 +1,14 @@
 # Netra's Progress Journal #
 ## ENTRY 22 &rarr; 09/16/2026 + 09/19/26 (1 hr)
 ### 8:30pm - 9:00pm
-- 
+- converted the spectogram files to grayscale images
+- applied -35 dB threshold to separate USVs from background noise
+- morphological opening and closing from opencv with 3x3 kernel to remove noise and reconnect gaps
 ### 11:00pm - 11:30pm
-- 
+- extraction done by getting the strongest frquency at that time point + get amplitude
+- ok now i need to find a way to quantify accuracy without just overlaying them
+    - well for now we will overlay them, tfridge is more limiting so the mfts are smaller typically
+    - cv picks up more of the contour, idk this needs to get done so ask dr tripp
 ## ENTRY 21 &rarr; 09/07/2026 (45 mins)
 ### 9:00pm - 10:00pm
 - cleaned up utils.py (need to finish)

@@ -9,7 +9,7 @@ from scipy.ndimage import binary_closing, binary_dilation, binary_opening
 import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
-#import cv2 # -> wait whats this? i dont have it on my side and it causes pca to throw error
+import cv2 
 
 # finds the project root based where utils.py is located in the mouse vocal 2026 folder
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -504,10 +504,6 @@ def check_mft_quality(
     reversal_window=5,
     min_active_points=8,
 ):
-    """
-    Flag suspicious MFTs without treating every legitimate
-    frequency jump as an error.
-    """
 
     _, freq_traj, _, active_bins = get_main_freq_traj(audio_path)
 
