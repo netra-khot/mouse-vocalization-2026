@@ -11,8 +11,10 @@
 - How can we visualize the PCA dimensions? is that even possible?
 - Try different loss functions?
 - Look into fixing rigid form of the spectrograms -> created as a result of the 100 timesteps?
+    - Look into some type of blur or something?
 - Splitting up spectrograms into their specific vocalizations
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
+- Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 
 ## Sep 27, 2026
 **Duration: ___ but most of it was the model training in the background as I studied for spanish**
