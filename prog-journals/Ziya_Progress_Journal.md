@@ -1,7 +1,6 @@
 # Ziya's Progress Journal
 
 ## To-Do List
-- Add amplitude as an extra features (what other features could be added?)
 - Review signal processing code + refined based on application performance
 - Could try compressing it spectrograms to more than 10 components?
     - I think 13 might be needed for 95%> variance explained
@@ -14,6 +13,10 @@
 - Look into fixing rigid form of the spectrograms -> created as a result of the 100 timesteps?
 - Splitting up spectrograms into their specific vocalizations
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
+
+## Sep 26, 2026
+**Duration: 15 min**
+- Fixed name bug in controller
 
 ## Sep 24, 2026
 **Duration: 1 hr 30 min**
