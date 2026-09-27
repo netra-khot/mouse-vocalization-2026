@@ -17,8 +17,13 @@
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 
 ## Sep 27, 2026
-**Duration: ___ but most of it was the model training in the background as I studied for spanish**
-
+**Duration: 2.5 hrs** but most of it was the model training in the background as I studied for chem
+- Rewrote the scaler-fitting code in pca.ipynb (i think i accidentally delted it), refit for 13 components
+    - Trained model w/ 13 principal components instead of 10
+- Tried lr = 5e-4 for 75 epochs (all results are on model performance spreadsheet)
+- Looked into "hallucinations" on flat trajectories (model like coming up with its own oscillations where the signal is actually flat)
+- Started sanity checking the mft extractions themselves
+    - I think the issue could be here?
 
 ## Sep 26, 2026
 **Duration: 15 min**
