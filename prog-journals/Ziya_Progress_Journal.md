@@ -14,6 +14,10 @@
 - Splitting up spectrograms into their specific vocalizations
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 
+## Sep 27, 2026
+**Duration: ___ but most of it was the model training in the background as I studied for spanish**
+
+
 ## Sep 26, 2026
 **Duration: 15 min**
 - Fixed name bug in controller
