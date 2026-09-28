@@ -467,155 +467,146 @@ def show_spectrogram_batch(
     return batch_df
 
 #CSV version
-def export_mft(audio_path, output_dir):
-    """
-    Extract and save the MFT for a single WAV file.
-    """
+def export_mft_csv(audio_files, output_file):
+    rows = []
 
-    times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
+    for audio_path in audio_files:
+        features = extract_usv_features(audio_path)
 
-    df = pd.DataFrame({
-        "time_s": times,
-        "frequency_hz": freq_traj,
-        "amplitude": amplitude_traj,
-        "active": active_bins.astype(int),
-    })
+        if features is not None:
+            rows.append(features)
 
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    df = pd.DataFrame(rows)
 
-    output_file = output_dir / (Path(audio_path).stem + ".csv")
-
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_file, index=False)
 
     return output_file
 
 #Pickle version
 def export_mft_pickle(audio_files, output_file):
-    """
-    Export MFT contours for multiple audio files into a single pickle file.
-    """
-
     contours = {}
-
     for audio_path in audio_files:
         times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
+        features = extract_usv_features(audio_path)
 
-        # Keep only the active portion of the contour
+        if features is None:
+            continue
+
+        features.pop("filename", None)
         contours[Path(audio_path).stem] = {
             "time_s": times[active_bins],
             "frequency_hz": freq_traj[active_bins],
             "amplitude": amplitude_traj[active_bins],
+            "features": features,  # store the numeric features once
         }
-        
-    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, "wb") as f:
         pickle.dump(contours, f)
 
     return output_file
 
+# def check_mft_quality(
+#     audio_path,
+#     large_jump_hz=15_000,
+#     reversal_window=5,
+#     min_active_points=8,
+# ):
 
-def check_mft_quality(
-    audio_path,
-    large_jump_hz=15_000,
-    reversal_window=5,
-    min_active_points=8,
-):
+#     _, freq_traj, _, active_bins = get_main_freq_traj(audio_path)
 
-    _, freq_traj, _, active_bins = get_main_freq_traj(audio_path)
+#     active_freq = np.asarray(freq_traj[active_bins], dtype=float)
+#     reasons = []
 
-    active_freq = np.asarray(freq_traj[active_bins], dtype=float)
-    reasons = []
+#     if len(active_freq) == 0:
+#         return ["no_contour"]
 
-    if len(active_freq) == 0:
-        return ["no_contour"]
+#     if np.any(~np.isfinite(active_freq)):
+#         reasons.append("contains_nan")
 
-    if np.any(~np.isfinite(active_freq)):
-        reasons.append("contains_nan")
+#     valid_freq = active_freq[
+#         np.isfinite(active_freq) & (active_freq > 0)
+#     ]
 
-    valid_freq = active_freq[
-        np.isfinite(active_freq) & (active_freq > 0)
-    ]
+#     if len(valid_freq) < min_active_points:
+#         reasons.append("too_short")
+#         return sorted(set(reasons))
 
-    if len(valid_freq) < min_active_points:
-        reasons.append("too_short")
-        return sorted(set(reasons))
+#     frequency_changes = np.diff(valid_freq)
 
-    frequency_changes = np.diff(valid_freq)
+#     jump_indices = np.flatnonzero(
+#         np.abs(frequency_changes) >= large_jump_hz
+#     )
 
-    jump_indices = np.flatnonzero(
-        np.abs(frequency_changes) >= large_jump_hz
-    )
+#     for i in range(len(jump_indices)):
+#         first_index = jump_indices[i]
+#         first_change = frequency_changes[first_index]
 
-    for i in range(len(jump_indices)):
-        first_index = jump_indices[i]
-        first_change = frequency_changes[first_index]
+#         for j in range(i + 1, len(jump_indices)):
+#             second_index = jump_indices[j]
 
-        for j in range(i + 1, len(jump_indices)):
-            second_index = jump_indices[j]
+#             if second_index - first_index > reversal_window:
+#                 break
 
-            if second_index - first_index > reversal_window:
-                break
+#             second_change = frequency_changes[second_index]
 
-            second_change = frequency_changes[second_index]
+#             # Large drop followed by large rise, or vice versa.
+#             if np.sign(first_change) != np.sign(second_change):
+#                 reasons.append("jump_reversal")
+#                 break
 
-            # Large drop followed by large rise, or vice versa.
-            if np.sign(first_change) != np.sign(second_change):
-                reasons.append("jump_reversal")
-                break
+#         if "jump_reversal" in reasons:
+#             break
 
-        if "jump_reversal" in reasons:
-            break
+#     for start in range(len(frequency_changes)):
+#         end = min(
+#             start + reversal_window,
+#             len(frequency_changes),
+#         )
 
-    for start in range(len(frequency_changes)):
-        end = min(
-            start + reversal_window,
-            len(frequency_changes),
-        )
+#         jumps_in_window = np.sum(
+#             np.abs(frequency_changes[start:end]) >= large_jump_hz
+#         )
 
-        jumps_in_window = np.sum(
-            np.abs(frequency_changes[start:end]) >= large_jump_hz
-        )
+#         if jumps_in_window >= 2:
+#             reasons.append("multiple_nearby_jumps")
+#             break
 
-        if jumps_in_window >= 2:
-            reasons.append("multiple_nearby_jumps")
-            break
+#     return sorted(set(reasons))
 
-    return sorted(set(reasons))
+# def flag_mft_dataset(
+#     audio_files,
+#     output_csv="flagged_mfts.csv",
+# ):
 
-def flag_mft_dataset(
-    audio_files,
-    output_csv="flagged_mfts.csv",
-):
+#     rows = []
 
-    rows = []
+#     for audio_path in audio_files:
+#         try:
+#             reasons = check_mft_quality(audio_path)
 
-    for audio_path in audio_files:
-        try:
-            reasons = check_mft_quality(audio_path)
+#             if reasons:
+#                 rows.append({
+#                     "filename": Path(audio_path).name,
+#                     "full_path": str(audio_path),
+#                     "reasons": "; ".join(reasons),
+#                 })
 
-            if reasons:
-                rows.append({
-                    "filename": Path(audio_path).name,
-                    "full_path": str(audio_path),
-                    "reasons": "; ".join(reasons),
-                })
+#         except Exception as exc:
+#             rows.append({
+#                 "filename": Path(audio_path).name,
+#                 "full_path": str(audio_path),
+#                 "reasons": f"error: {type(exc).__name__}: {exc}",
+#             })
 
-        except Exception as exc:
-            rows.append({
-                "filename": Path(audio_path).name,
-                "full_path": str(audio_path),
-                "reasons": f"error: {type(exc).__name__}: {exc}",
-            })
+#     flagged_df = pd.DataFrame(rows)
+#     flagged_df.to_csv(output_csv, index=False)
 
-    flagged_df = pd.DataFrame(rows)
-    flagged_df.to_csv(output_csv, index=False)
+#     print(f"Flagged {len(flagged_df)} files.")
+#     print(f"Saved to: {output_csv}")
 
-    print(f"Flagged {len(flagged_df)} files.")
-    print(f"Saved to: {output_csv}")
-
-    return flagged_df
+#     return flagged_df
 
 
 def get_cv_freq_traj(path, threshold_db=-35):
@@ -641,3 +632,64 @@ def get_cv_freq_traj(path, threshold_db=-35):
             amplitude_traj[t] = S[bin_index, t]
 
     return times, freq_traj, amplitude_traj
+
+
+def extract_usv_features(audio_path, jump_threshold_hz=5000):
+    times, freq, amp, active = get_main_freq_traj(audio_path)
+
+    # only keep track of the detected MFT points
+    valid = active & np.isfinite(freq) & (freq > 0)
+    t = times[valid]
+    f = freq[valid]
+    a = amp[valid]
+
+    if len(f) < 3:
+        return None
+
+    duration = t[-1] - t[0]
+    normalized_time = (t - t[0]) / max(duration, 1e-12)
+
+    # normalize amplitude bc recording gain and distance can vary
+    a_norm = a / (np.max(a) + 1e-12)
+
+    frequency_change = np.diff(f)
+    slope = np.gradient(f, t)
+    curvature = np.gradient(slope, t)
+
+    # keep track of changes in slope direction
+    slope_sign = np.sign(slope)
+    reversals = np.sum(slope_sign[1:] != slope_sign[:-1])
+
+    peak_index = np.argmax(a_norm)
+
+    # measure amplitude rise and fall rates
+    attack = (
+        np.polyfit(normalized_time[:peak_index + 1], a_norm[:peak_index + 1], 1)[0]
+        if peak_index >= 1 else 0
+    )
+
+    decay = (
+        np.polyfit(normalized_time[peak_index:], a_norm[peak_index:], 1)[0]
+        if len(a_norm) - peak_index >= 2 else 0
+    )
+
+    return {
+        "filename": Path(audio_path).name,
+        "duration_s": duration,
+        "start_frequency_hz": f[0],
+        "end_frequency_hz": f[-1],
+        "frequency_range_hz": np.ptp(f),
+        "mean_frequency_hz": np.mean(f),
+        "median_frequency_hz": np.median(f),
+        "frequency_slope_hz_s": np.polyfit(t, f, 1)[0],
+        "mean_abs_curvature": np.mean(np.abs(curvature)),
+        "frequency_std_hz": np.std(f),
+        "jump_count": np.sum(np.abs(frequency_change) > jump_threshold_hz),
+        "modulation_rate_hz": reversals / max(duration, 1e-12),
+        "peak_timing": normalized_time[peak_index],
+        "attack_slope": attack,
+        "decay_slope": decay,
+        "amplitude_std": np.std(a_norm),
+        "amplitude_range": np.ptp(a_norm),
+        "gap_percentage": 100 * (1 - np.mean(active)),
+    }
