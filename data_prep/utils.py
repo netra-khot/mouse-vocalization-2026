@@ -146,8 +146,8 @@ def track_ridge_tfridge_like(
     magnitude,
     freqs,
     active_bins,
-    top_k=8,
-    jump_penalty=0.08,
+    top_k=12,
+    jump_penalty=0.03,
     max_jump_hz=None,
 ):
 
@@ -316,9 +316,9 @@ def get_main_freq_traj(
     audio_path,
     freq_min=20000,
     freq_max=125000,
-    n_fft=2048,
+    n_fft=1024,
     hop_length=128,
-    entropy_threshold=0.72,
+    entropy_threshold=0.85,
     min_active_bins=2,
     silence_value=0.0,
 ):
@@ -377,11 +377,29 @@ def get_main_freq_traj(
             magnitude=mag_usv,
             freqs=freqs_usv,
             active_bins=active_bins,
-            top_k=8,
-            jump_penalty=0.25,
+            top_k=12,
+            jump_penalty=0.03,
             max_jump_hz=None,
         )
 
+    # remove isolated frequency spikes without deleting actual jumps
+    # for i in range(1, len(freq_traj) - 1):
+    #     if not np.all(np.isfinite(freq_traj[i - 1:i + 2])):
+    #         continue
+
+    #     jump_before = abs(freq_traj[i] - freq_traj[i - 1])
+    #     jump_after = abs(freq_traj[i] - freq_traj[i + 1])
+    #     neighbors_match = abs(freq_traj[i - 1] - freq_traj[i + 1]) < 5000
+
+    #     if jump_before > 10000 and jump_after > 10000 and neighbors_match:
+    #         freq_traj[i] = np.nan
+    #         amplitude_traj[i] = np.nan
+    #         active_bins[i] = False
+    jump_indices = np.where(np.abs(np.diff(freq_traj)) > 10000)[0] + 1
+
+    freq_traj[jump_indices] = np.nan
+    amplitude_traj[jump_indices] = np.nan
+    active_bins[jump_indices] = False
 
     return times, freq_traj, amplitude_traj, active_bins
 
