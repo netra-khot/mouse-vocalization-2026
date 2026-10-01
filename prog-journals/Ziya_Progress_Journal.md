@@ -16,6 +16,13 @@
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 
+## Sep 30, 2026
+**Duration: **
+- Checked cumulative variance explained by pitch-centered vs pitch kept in
+    - 4 principal components explains >90% variance w/ pitch kept in
+    - 7 principal components explains >95% variance pitch-centered
+    - Graphed results for both methods
+
 ## Sep 27, 2026
 **Duration: 2.5 hrs** but most of it was the model training in the background as I studied for chem
 - Rewrote the scaler-fitting code in pca.ipynb (i think i accidentally delted it), refit for 13 components
@@ -24,6 +31,7 @@
 - Looked into "hallucinations" on flat trajectories (model like coming up with its own oscillations where the signal is actually flat)
 - Started sanity checking the mft extractions themselves
     - I think the issue could be here?
+- Added STDev as a feature input
 
 ## Sep 26, 2026
 **Duration: 15 min**
