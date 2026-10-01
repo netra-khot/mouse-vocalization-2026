@@ -17,7 +17,11 @@
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 
 ## Oct 1, 2026
-**Duration: **
+**Duration: 1 hr**
+
+- Added real spectograms behind the extracted main freq-traj for the clickable 3d visualization
+- Plotted principal components as time series
+- Exported 3d model as .html final
 
 ## Sep 30, 2026
 **Duration: 1 hr 45 min**
