@@ -1,11 +1,19 @@
 # Netra's Progress Journal #
+## ENTRY 23 &rarr; 09/26/26 (1.5 hours)
+- after calling Dr. Tripp, need to look into the harmonics + overlapping spectrogram files
+    - checked BiWaveGAN paper (where our data is from) and found that each spectrogram is in fact one syllable each so there's no point removing files bc the weird ones are actually complex
+        - raises the question what is the right way to go about making those mfts?? is there a strict correct way to do so?
+- updated tfridge method to preserve gaps instead of forcing one continous trajectory 
+    - used np.diff(active_indices) > 1 and np.split() in track_ridge_tfridge_like() to process each disconnected active section separately
+    - inactive frames should be stored as 0 or NaN
+    - top_k=12, jump_penalty=0.03, and max_jump_hz=None
 ## ENTRY 22 &rarr; 09/16/2026 + 09/19/26 (1 hr)
 ### 8:30pm - 9:00pm
 - converted the spectogram files to grayscale images
 - applied -35 dB threshold to separate USVs from background noise
 - morphological opening and closing from opencv with 3x3 kernel to remove noise and reconnect gaps
 ### 11:00pm - 11:30pm
-- extraction done by getting the strongest frquency at that time point + get amplitude
+- extraction done by getting the strongest frequency at that time point + get amplitude
 - ok now i need to find a way to quantify accuracy without just overlaying them
     - well for now we will overlay them, tfridge is more limiting so the mfts are smaller typically
     - cv picks up more of the contour, idk this needs to get done so ask dr tripp
