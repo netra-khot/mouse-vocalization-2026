@@ -17,14 +17,17 @@
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 
 ## Sep 30, 2026
-**Duration: **
+**Duration: 1 hr 45 min**
 - Checked cumulative variance explained by pitch-centered vs pitch kept in
     - 4 principal components explains >90% variance w/ pitch kept in
-    - 7 principal components explains >95% variance pitch-centered
+    - 7 principal components explains >90% variance pitch-centered
     - Graphed results for both methods
 - Downloaded new scaler w/ pitch
 - Downloaded testing + training contours w/ pitch
+    - oops didn't need this actually
 - Trained the model w/o removing pitch or manually adding pitch + stdev features(updated the model performance tracker spreadsheet)
+    - 75 epochs
+    - Final test RMSE ~1.7 kHz
 - Worked on isolating types of cases where model performs really badly
     - Adding pitch back in solved the flat-spectrogram hallucinations
 
