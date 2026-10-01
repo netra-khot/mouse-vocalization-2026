@@ -24,6 +24,9 @@
     - Graphed results for both methods
 - Downloaded new scaler w/ pitch
 - Downloaded testing + training contours w/ pitch
+- Trained the model w/o removing pitch or manually adding pitch + stdev features(updated the model performance tracker spreadsheet)
+- Worked on isolating types of cases where model performs really badly
+    - Adding pitch back in solved the flat-spectrogram hallucinations
 
 ## Sep 27, 2026
 **Duration: 2.5 hrs** but most of it was the model training in the background as I studied for chem
