@@ -22,6 +22,8 @@
     - 4 principal components explains >90% variance w/ pitch kept in
     - 7 principal components explains >95% variance pitch-centered
     - Graphed results for both methods
+- Downloaded new scaler w/ pitch
+- Downloaded testing + training contours w/ pitch
 
 ## Sep 27, 2026
 **Duration: 2.5 hrs** but most of it was the model training in the background as I studied for chem
