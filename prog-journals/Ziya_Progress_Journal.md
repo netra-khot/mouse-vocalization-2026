@@ -16,8 +16,12 @@
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 
+## Oct 1, 2026
+**Duration: **
+
 ## Sep 30, 2026
 **Duration: 1 hr 45 min**
+
 - Checked cumulative variance explained by pitch-centered vs pitch kept in
     - 4 principal components explains >90% variance w/ pitch kept in
     - 7 principal components explains >90% variance pitch-centered
@@ -33,6 +37,7 @@
 
 ## Sep 27, 2026
 **Duration: 2.5 hrs** but most of it was the model training in the background as I studied for chem
+
 - Rewrote the scaler-fitting code in pca.ipynb (i think i accidentally delted it), refit for 13 components
     - Trained model w/ 13 principal components instead of 10
 - Tried lr = 5e-4 for 75 epochs (all results are on model performance spreadsheet)
@@ -43,10 +48,12 @@
 
 ## Sep 26, 2026
 **Duration: 15 min**
+
 - Fixed name bug in controller
 
 ## Sep 24, 2026
 **Duration: 1 hr 30 min**
+
 - Added pca vector visualization diagram
     - Interactive!!
     - Can click on point to see the spectrogram
