@@ -16,6 +16,12 @@
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 
+## Oct 2, 2026
+**Duration: 1 hr**
+
+- Did the PCA inverse transformation reconstruction of max-jumps overall
+    - I was completely wrong, the jumps aren't being encoded in the PCs
+
 ## Oct 1, 2026
 **Duration: 1 hr**
 
