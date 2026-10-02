@@ -15,6 +15,8 @@
 - Splitting up spectrograms into their specific vocalizations
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
+- **Try making the model autoregressive**
+- **Check how well the model is evaluating in terms of the PCA loss (how well is it matching the reconstructed spectrograms)**
 
 ## Oct 2, 2026
 **Duration: 1 hr**
