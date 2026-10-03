@@ -18,15 +18,34 @@ class LSTMController(nn.Module):
 
         self.fc = nn.Linear(hidden_dim, 4)
 
+    # def forward(self, pca_vector):
+    #     batch_size = pca_vector.size(0)
+
+    #     embedded = self.embedding(pca_vector)
+    #     embedded_repeated = embedded.unsqueeze(1).repeat(1, self.seq_len, 1)
+
+    #     lstm_out, _ = self.lstm(embedded_repeated)
+
+    #     raw_output = self.fc(lstm_out)
+    #     activations = torch.sigmoid(raw_output)
+
+    #     return activations
+
+    # changed the forward method to be autoregressive
     def forward(self, pca_vector):
         batch_size = pca_vector.size(0)
+        embedded = self.embedding(pca_vector)  # (batch, embedding_dim), same as before
 
-        embedded = self.embedding(pca_vector)
-        embedded_repeated = embedded.unsqueeze(1).repeat(1, self.seq_len, 1)
+        h, c = torch.zeros(batch_size, self.hidden_dim), torch.zeros(batch_size, self.hidden_dim)
+        prev_activation = torch.zeros(batch_size, 4)  # start with zeros, no "previous" yet
 
-        lstm_out, _ = self.lstm(embedded_repeated)
+        outputs = []
+        for t in range(self.seq_len):
+            step_input = torch.cat([embedded, prev_activation], dim=1)
+            h, c = self.lstm_cell(step_input, (h, c))
+            raw_output = self.fc(h)
+            activation = torch.sigmoid(raw_output)
+            outputs.append(activation)
+            prev_activation = activation  # feed this step's output into the next
 
-        raw_output = self.fc(lstm_out)
-        activations = torch.sigmoid(raw_output)
-
-        return activations
+        return torch.stack(outputs, dim=1)  # (batch, seq_len, 4)
