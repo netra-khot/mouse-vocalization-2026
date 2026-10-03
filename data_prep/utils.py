@@ -152,6 +152,15 @@ def track_ridge_tfridge_like(
 ):
 
     n_times = magnitude.shape[1]
+    # Convert magnitudes to dB
+    magnitude_db = librosa.amplitude_to_db(magnitude, ref=np.max)
+
+    # Estimate the background level at each frequency
+    noise_floor_db = np.percentile(
+        magnitude_db,
+        noise_percentile,
+        axis=1,
+    )
     freq_traj = np.full(n_times, np.nan, dtype=float)
     amplitude_traj = np.full(n_times, np.nan, dtype=float) # initializing getting amplitude traj like what Dr. Tripp was talking abt
 
@@ -404,67 +413,396 @@ def get_main_freq_traj(
     return times, freq_traj, amplitude_traj, active_bins
 
 
-def show_spectrogram_batch(
-    file_df,
-    batch_number=0,
-    batch_size=20,
-    random_state=42,
-    freq_max_khz=125,
+def _track_ridge_branch(
+    magnitude,
+    freqs,
+    active_bins,
+    branch,
+    bottom_freq_traj=None,
+    top_k=12,
+    jump_penalty=0.03,
+    max_jump_hz=None,
+    threshold_above_noise_db=12,
+    noise_percentile=20,
+    branch_preference_db=8,
+    min_separation_hz=2000,
 ):
+    n_times = magnitude.shape[1]
 
-    shuffled_df = file_df.sample(
-        frac=1,
-        random_state=random_state
-    ).reset_index(drop=True)
+    freq_traj = np.full(n_times, np.nan)
+    amplitude_traj = np.full(n_times, np.nan)
 
-    start = batch_number * batch_size
-    end = min(start + batch_size, len(shuffled_df))
-    batch_df = shuffled_df.iloc[start:end]
-
-    if batch_df.empty:
-        print("No more files to display.")
-        return
-
-    fig, axes = plt.subplots(5, 4, figsize=(18, 16))
-    axes = axes.flatten()
-
-    for ax, (_, row) in zip(axes, batch_df.iterrows()):
-        audio, sr = load_audio(row["full_path"])
-
-        S_db, freqs, times = quick_spectrogram(
-            audio,
-            sr,
-            n_fft=1024,
-            hop_length=128,
-        )
-
-        ax.pcolormesh(
-            times * 1000,
-            freqs / 1000,
-            S_db,
-            shading="auto",
-            cmap="magma",
-            vmin=-60,
-            vmax=0,
-        )
-
-        ax.set_ylim(20, freq_max_khz)
-        ax.set_title(row["filename"], fontsize=9)
-        ax.set_xlabel("Time (ms)")
-        ax.set_ylabel("Frequency (kHz)")
-
-    # Hide unused panels in the final batch
-    for ax in axes[len(batch_df):]:
-        ax.axis("off")
-
-    plt.suptitle(
-        f"Spectrograms {start + 1}–{end} of {len(shuffled_df)}",
-        fontsize=16,
+    magnitude_db = librosa.amplitude_to_db(
+        magnitude,
+        ref=np.max,
     )
-    plt.tight_layout()
-    plt.show()
 
-    return batch_df
+    # estimate background at each frequency
+    noise_floor_db = np.percentile(
+        magnitude_db,
+        noise_percentile,
+        axis=1,
+    )
+
+    candidate_bins_by_time = []
+    candidate_scores_by_time = []
+
+    frequency_position = (
+        (freqs - freqs.min())
+        / (freqs.max() - freqs.min() + 1e-12)
+    )
+
+    for t in range(n_times):
+        if not active_bins[t]:
+            candidate_bins_by_time.append(np.array([], dtype=int))
+            candidate_scores_by_time.append(np.array([]))
+            continue
+
+        peaks, _ = find_peaks(magnitude[:, t])
+
+        if len(peaks) == 0:
+            candidate_bins_by_time.append(np.array([], dtype=int))
+            candidate_scores_by_time.append(np.array([]))
+            continue
+
+        db_above_noise = (
+            magnitude_db[peaks, t]
+            - noise_floor_db[peaks]
+        )
+
+        # Only retain peaks above background noise theshold
+        keep = db_above_noise >= threshold_above_noise_db
+        peaks = peaks[keep]
+        db_above_noise = db_above_noise[keep]
+
+        if branch == "bottom" and len(peaks) > 0:
+            lowest_index = np.argmin(freqs[peaks])
+
+            peaks = peaks[[lowest_index]]
+            db_above_noise = db_above_noise[[lowest_index]]
+
+        # so this is making sure the top ridge must be above the detected bottom ridge
+        if branch == "top":
+            if (
+                bottom_freq_traj is None
+                or not np.isfinite(bottom_freq_traj[t])
+            ):
+                peaks = np.array([], dtype=int)
+                db_above_noise = np.array([])
+            else:
+                keep = (
+                    freqs[peaks]
+                    >= bottom_freq_traj[t] + min_separation_hz
+                )
+
+                peaks = peaks[keep]
+                db_above_noise = db_above_noise[keep]
+
+        if len(peaks) == 0:
+            candidate_bins_by_time.append(np.array([], dtype=int))
+            candidate_scores_by_time.append(np.array([]))
+            continue
+
+        # Keep the strongest qualifying peaks
+        order = np.argsort(db_above_noise)[::-1][:top_k]
+        peaks = peaks[order]
+        db_above_noise = db_above_noise[order]
+
+        # Favor lower frequencies for bottom and higher ones for top
+        if branch == "bottom":
+            branch_score = (
+                branch_preference_db
+                * (1 - frequency_position[peaks])
+            )
+        else:
+            branch_score = (
+                branch_preference_db
+                * frequency_position[peaks]
+            )
+
+        candidate_bins_by_time.append(peaks)
+        candidate_scores_by_time.append(
+            db_above_noise + branch_score
+        )
+
+    # Frames without qualifying peaks become gaps
+    usable_bins = active_bins & np.array([
+        len(peaks) > 0 for peaks in candidate_bins_by_time
+    ])
+
+    usable_indices = np.flatnonzero(usable_bins)
+
+    if len(usable_indices) == 0:
+        return freq_traj, amplitude_traj
+
+    split_locations = (
+        np.where(np.diff(usable_indices) > 1)[0] + 1
+    )
+
+    segments = np.split(usable_indices, split_locations)
+
+    for segment_times in segments:
+        number_of_frames = len(segment_times)
+
+        if number_of_frames == 0:
+            continue
+
+        best_scores = [None] * number_of_frames
+        backpointers = [None] * number_of_frames
+
+        first_t = segment_times[0]
+
+        best_scores[0] = candidate_scores_by_time[
+            first_t
+        ].copy()
+
+        backpointers[0] = np.full(
+            len(candidate_bins_by_time[first_t]),
+            -1,
+            dtype=int,
+        )
+
+        for i in range(1, number_of_frames):
+            current_t = segment_times[i]
+            previous_t = segment_times[i - 1]
+
+            current_candidates = candidate_bins_by_time[current_t]
+            previous_candidates = candidate_bins_by_time[previous_t]
+
+            current_freqs = freqs[current_candidates]
+            previous_freqs = freqs[previous_candidates]
+
+            current_scores = np.full(
+                len(current_candidates),
+                -np.inf,
+            )
+
+            current_backpointers = np.full(
+                len(current_candidates),
+                -1,
+                dtype=int,
+            )
+
+            for current_index, current_frequency in enumerate(
+                current_freqs
+            ):
+                frequency_changes_hz = np.abs(
+                    previous_freqs - current_frequency
+                )
+
+                transition_scores = (
+                    best_scores[i - 1]
+                    - jump_penalty
+                    * (frequency_changes_hz / 1000)
+                )
+
+                if max_jump_hz is not None:
+                    transition_scores[
+                        frequency_changes_hz > max_jump_hz
+                    ] = -np.inf
+
+                best_previous_index = np.argmax(
+                    transition_scores
+                )
+
+                best_previous_score = transition_scores[
+                    best_previous_index
+                ]
+
+                if np.isfinite(best_previous_score):
+                    current_scores[current_index] = (
+                        best_previous_score
+                        + candidate_scores_by_time[
+                            current_t
+                        ][current_index]
+                    )
+
+                    current_backpointers[current_index] = (
+                        best_previous_index
+                    )
+
+            best_scores[i] = current_scores
+            backpointers[i] = current_backpointers
+
+        final_candidate = np.argmax(best_scores[-1])
+
+        if not np.isfinite(
+            best_scores[-1][final_candidate]
+        ):
+            continue
+
+        selected = np.full(
+            number_of_frames,
+            -1,
+            dtype=int,
+        )
+
+        selected[-1] = final_candidate
+
+        for i in range(number_of_frames - 1, 0, -1):
+            selected[i - 1] = backpointers[i][selected[i]]
+
+            if selected[i - 1] < 0:
+                break
+
+        for i, t in enumerate(segment_times):
+            if selected[i] < 0:
+                continue
+
+            frequency_bin = candidate_bins_by_time[t][
+                selected[i]
+            ]
+
+            freq_traj[t] = freqs[frequency_bin]
+            amplitude_traj[t] = magnitude[frequency_bin, t]
+
+    return freq_traj, amplitude_traj
+
+def track_bottom_ridge_tfridge_like(
+    magnitude,
+    freqs,
+    active_bins,
+    **kwargs,
+):
+    return _track_ridge_branch(
+        magnitude=magnitude,
+        freqs=freqs,
+        active_bins=active_bins,
+        branch="bottom",
+        **kwargs,
+    )
+
+def track_top_ridge_tfridge_like(
+    magnitude,
+    freqs,
+    active_bins,
+    bottom_freq_traj,
+    **kwargs,
+):
+    return _track_ridge_branch(
+        magnitude=magnitude,
+        freqs=freqs,
+        active_bins=active_bins,
+        branch="top",
+        bottom_freq_traj=bottom_freq_traj,
+        **kwargs,
+    )
+
+
+def get_dual_freq_traj(
+    audio_path,
+    freq_min=20000,
+    freq_max=125000,
+    n_fft=1024,
+    hop_length=128,
+    entropy_threshold=0.85,
+    min_active_bins=2,
+):
+    times, freqs, magnitude = get_spectrogram(
+        audio_path,
+        n_fft=n_fft,
+        hop_length=hop_length,
+    )
+
+    freq_mask = (
+        (freqs >= freq_min)
+        & (freqs <= freq_max)
+    )
+
+    freqs_usv = freqs[freq_mask]
+    mag_usv = magnitude[freq_mask, :]
+
+    empty = np.full(len(times), np.nan)
+    inactive = np.zeros(len(times), dtype=bool)
+
+    if mag_usv.size == 0:
+        return (
+            times,
+            empty.copy(),
+            empty.copy(),
+            empty.copy(),
+            empty.copy(),
+            inactive.copy(),
+            inactive.copy(),
+        )
+
+    power = mag_usv ** 2
+
+    probability = power / (
+        np.sum(power, axis=0, keepdims=True) + 1e-12
+    )
+
+    entropy = -np.sum(
+        probability * np.log2(probability + 1e-12),
+        axis=0,
+    )
+
+    entropy /= np.log2(probability.shape[0])
+
+    if len(entropy) >= 3:
+        entropy = np.convolve(
+            entropy,
+            np.ones(3) / 3,
+            mode="same",
+        )
+
+    detected_bins = entropy < entropy_threshold
+
+    detected_bins = binary_opening(
+        detected_bins,
+        structure=np.ones(min_active_bins),
+    )
+
+    detected_bins = binary_closing(
+        detected_bins,
+        structure=np.ones(2),
+    )
+
+    detected_bins = binary_dilation(
+        detected_bins,
+        structure=np.ones(5),
+    )
+
+    bottom_freq, bottom_amplitude = (
+        track_bottom_ridge_tfridge_like(
+            magnitude=mag_usv,
+            freqs=freqs_usv,
+            active_bins=detected_bins,
+            threshold_above_noise_db=15,
+            noise_percentile=20,
+            branch_preference_db=25,
+            top_k=12,
+            jump_penalty=0.15,
+        )
+    )
+
+    top_freq, top_amplitude = (
+        track_top_ridge_tfridge_like(
+            magnitude=mag_usv,
+            freqs=freqs_usv,
+            active_bins=detected_bins,
+            bottom_freq_traj=bottom_freq,
+            threshold_above_noise_db=15,
+            noise_percentile=20,
+            branch_preference_db=12,
+            min_separation_hz=2000,
+            top_k=12,
+            jump_penalty=0.15,
+        )
+    )
+
+    bottom_active = np.isfinite(bottom_freq)
+    top_active = np.isfinite(top_freq)
+
+    return (
+        times,
+        bottom_freq,
+        bottom_amplitude,
+        top_freq,
+        top_amplitude,
+        bottom_active,
+        top_active,
+    )
 
 #CSV version
 def export_mft_csv(audio_files, output_file):
@@ -507,189 +845,3 @@ def export_mft_pickle(audio_files, output_file):
 
     return output_file
 
-# def check_mft_quality(
-#     audio_path,
-#     large_jump_hz=15_000,
-#     reversal_window=5,
-#     min_active_points=8,
-# ):
-
-#     _, freq_traj, _, active_bins = get_main_freq_traj(audio_path)
-
-#     active_freq = np.asarray(freq_traj[active_bins], dtype=float)
-#     reasons = []
-
-#     if len(active_freq) == 0:
-#         return ["no_contour"]
-
-#     if np.any(~np.isfinite(active_freq)):
-#         reasons.append("contains_nan")
-
-#     valid_freq = active_freq[
-#         np.isfinite(active_freq) & (active_freq > 0)
-#     ]
-
-#     if len(valid_freq) < min_active_points:
-#         reasons.append("too_short")
-#         return sorted(set(reasons))
-
-#     frequency_changes = np.diff(valid_freq)
-
-#     jump_indices = np.flatnonzero(
-#         np.abs(frequency_changes) >= large_jump_hz
-#     )
-
-#     for i in range(len(jump_indices)):
-#         first_index = jump_indices[i]
-#         first_change = frequency_changes[first_index]
-
-#         for j in range(i + 1, len(jump_indices)):
-#             second_index = jump_indices[j]
-
-#             if second_index - first_index > reversal_window:
-#                 break
-
-#             second_change = frequency_changes[second_index]
-
-#             # Large drop followed by large rise, or vice versa.
-#             if np.sign(first_change) != np.sign(second_change):
-#                 reasons.append("jump_reversal")
-#                 break
-
-#         if "jump_reversal" in reasons:
-#             break
-
-#     for start in range(len(frequency_changes)):
-#         end = min(
-#             start + reversal_window,
-#             len(frequency_changes),
-#         )
-
-#         jumps_in_window = np.sum(
-#             np.abs(frequency_changes[start:end]) >= large_jump_hz
-#         )
-
-#         if jumps_in_window >= 2:
-#             reasons.append("multiple_nearby_jumps")
-#             break
-
-#     return sorted(set(reasons))
-
-# def flag_mft_dataset(
-#     audio_files,
-#     output_csv="flagged_mfts.csv",
-# ):
-
-#     rows = []
-
-#     for audio_path in audio_files:
-#         try:
-#             reasons = check_mft_quality(audio_path)
-
-#             if reasons:
-#                 rows.append({
-#                     "filename": Path(audio_path).name,
-#                     "full_path": str(audio_path),
-#                     "reasons": "; ".join(reasons),
-#                 })
-
-#         except Exception as exc:
-#             rows.append({
-#                 "filename": Path(audio_path).name,
-#                 "full_path": str(audio_path),
-#                 "reasons": f"error: {type(exc).__name__}: {exc}",
-#             })
-
-#     flagged_df = pd.DataFrame(rows)
-#     flagged_df.to_csv(output_csv, index=False)
-
-#     print(f"Flagged {len(flagged_df)} files.")
-#     print(f"Saved to: {output_csv}")
-
-#     return flagged_df
-
-
-def get_cv_freq_traj(path, threshold_db=-35):
-    audio, sr = load_audio(path, target_sr=240000)
-    audio = bandpass_filter(audio, sr)
-
-    S_db, freqs, times = quick_spectrogram(audio, sr)
-    S = librosa.db_to_amplitude(S_db)
-
-    mask = (S_db > threshold_db).astype(np.uint8) * 255
-    kernel = np.ones((3, 3), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-
-    freq_traj = np.full(len(times), np.nan)
-    amplitude_traj = np.full(len(times), np.nan)
-
-    for t in range(len(times)):
-        rows = np.flatnonzero(mask[:, t])
-        if len(rows):
-            bin_index = rows[np.argmax(S[rows, t])]
-            freq_traj[t] = freqs[bin_index]
-            amplitude_traj[t] = S[bin_index, t]
-
-    return times, freq_traj, amplitude_traj
-
-
-def extract_usv_features(audio_path, jump_threshold_hz=5000):
-    times, freq, amp, active = get_main_freq_traj(audio_path)
-
-    # only keep track of the detected MFT points
-    valid = active & np.isfinite(freq) & (freq > 0)
-    t = times[valid]
-    f = freq[valid]
-    a = amp[valid]
-
-    if len(f) < 3:
-        return None
-
-    duration = t[-1] - t[0]
-    normalized_time = (t - t[0]) / max(duration, 1e-12)
-
-    # normalize amplitude bc recording gain and distance can vary
-    a_norm = a / (np.max(a) + 1e-12)
-
-    frequency_change = np.diff(f)
-    slope = np.gradient(f, t)
-    curvature = np.gradient(slope, t)
-
-    # keep track of changes in slope direction
-    slope_sign = np.sign(slope)
-    reversals = np.sum(slope_sign[1:] != slope_sign[:-1])
-
-    peak_index = np.argmax(a_norm)
-
-    # measure amplitude rise and fall rates
-    attack = (
-        np.polyfit(normalized_time[:peak_index + 1], a_norm[:peak_index + 1], 1)[0]
-        if peak_index >= 1 else 0
-    )
-
-    decay = (
-        np.polyfit(normalized_time[peak_index:], a_norm[peak_index:], 1)[0]
-        if len(a_norm) - peak_index >= 2 else 0
-    )
-
-    return {
-        "filename": Path(audio_path).name,
-        "duration_s": duration,
-        "start_frequency_hz": f[0],
-        "end_frequency_hz": f[-1],
-        "frequency_range_hz": np.ptp(f),
-        "mean_frequency_hz": np.mean(f),
-        "median_frequency_hz": np.median(f),
-        "frequency_slope_hz_s": np.polyfit(t, f, 1)[0],
-        "mean_abs_curvature": np.mean(np.abs(curvature)),
-        "frequency_std_hz": np.std(f),
-        "jump_count": np.sum(np.abs(frequency_change) > jump_threshold_hz),
-        "modulation_rate_hz": reversals / max(duration, 1e-12),
-        "peak_timing": normalized_time[peak_index],
-        "attack_slope": attack,
-        "decay_slope": decay,
-        "amplitude_std": np.std(a_norm),
-        "amplitude_range": np.ptp(a_norm),
-        "gap_percentage": 100 * (1 - np.mean(active)),
-    }
