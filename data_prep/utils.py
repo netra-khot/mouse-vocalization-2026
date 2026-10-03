@@ -152,15 +152,7 @@ def track_ridge_tfridge_like(
 ):
 
     n_times = magnitude.shape[1]
-    # Convert magnitudes to dB
-    magnitude_db = librosa.amplitude_to_db(magnitude, ref=np.max)
-
-    # Estimate the background level at each frequency
-    noise_floor_db = np.percentile(
-        magnitude_db,
-        noise_percentile,
-        axis=1,
-    )
+    
     freq_traj = np.full(n_times, np.nan, dtype=float)
     amplitude_traj = np.full(n_times, np.nan, dtype=float) # initializing getting amplitude traj like what Dr. Tripp was talking abt
 
@@ -475,6 +467,19 @@ def _track_ridge_branch(
         peaks = peaks[keep]
         db_above_noise = db_above_noise[keep]
 
+        # Remove peaks much weaker than the strongest peak in this frame
+        if len(peaks) > 0:
+            strongest_peak_db = np.max(magnitude_db[peaks, t])
+
+            strong_enough = (
+                magnitude_db[peaks, t]
+                >= strongest_peak_db - 12
+            )
+
+            peaks = peaks[strong_enough]
+            db_above_noise = db_above_noise[strong_enough]
+
+        # Choose the lowest strong peak for the bottom trajectory
         if branch == "bottom" and len(peaks) > 0:
             lowest_index = np.argmin(freqs[peaks])
 
@@ -763,6 +768,130 @@ def get_dual_freq_traj(
         structure=np.ones(5),
     )
 
+    # Convert the USV spectrogram to decibels
+    magnitude_db = librosa.amplitude_to_db(
+        mag_usv,
+        ref=np.max,
+    )
+
+    # Estimate background noise at each frequency
+    noise_floor_db = np.percentile(
+        magnitude_db,
+        20,
+        axis=1,
+    )
+
+    multiple_peak_frames = 0
+    current_run = 0
+    longest_run = 0
+
+    active_frame_count = np.sum(detected_bins)
+
+    for t in range(len(times)):
+        if not detected_bins[t]:
+            current_run = 0
+            continue
+
+        peaks, _ = find_peaks(mag_usv[:, t])
+
+        if len(peaks) < 2:
+            current_run = 0
+            continue
+
+        db_above_noise = (
+            magnitude_db[peaks, t]
+            - noise_floor_db[peaks]
+        )
+
+        # Peaks must be at least 15 dB above background
+        peaks = peaks[db_above_noise >= 15]
+
+        if len(peaks) < 2:
+            current_run = 0
+            continue
+
+        # Sort peaks from strongest to weakest
+        order = np.argsort(
+            magnitude_db[peaks, t]
+        )[::-1]
+
+        peaks = peaks[order]
+        strongest_peak = peaks[0]
+
+        second_ridge_found = False
+
+        for second_peak in peaks[1:]:
+            separation = abs(
+                freqs_usv[second_peak]
+                - freqs_usv[strongest_peak]
+            )
+
+            amplitude_difference = (
+                magnitude_db[strongest_peak, t]
+                - magnitude_db[second_peak, t]
+            )
+
+            # Require a strong second peak separated by 15 kHz
+            if (
+                separation >= 15000
+                and amplitude_difference <= 8
+            ):
+                second_ridge_found = True
+                break
+
+        if second_ridge_found:
+            multiple_peak_frames += 1
+            current_run += 1
+            longest_run = max(longest_run, current_run)
+        else:
+            current_run = 0
+
+    minimum_multiple_frames = max(
+        6,
+        int(0.20 * active_frame_count),
+    )
+
+    has_multiple_ridges = (
+        multiple_peak_frames >= minimum_multiple_frames
+        and longest_run >= 6
+    )
+
+    print(
+        "Multiple-ridge detection:",
+        has_multiple_ridges,
+        "| frames:",
+        multiple_peak_frames,
+        "| longest run:",
+        longest_run,
+    )
+
+    # Use the original MFT method for ordinary single-ridge calls
+    if not has_multiple_ridges:
+        main_freq, main_amplitude = track_ridge_tfridge_like(
+            magnitude=mag_usv,
+            freqs=freqs_usv,
+            active_bins=detected_bins,
+            top_k=12,
+            jump_penalty=0.03,
+            max_jump_hz=None,
+        )
+
+        main_active = np.isfinite(main_freq)
+
+        top_freq = np.full(len(times), np.nan)
+        top_amplitude = np.full(len(times), np.nan)
+        top_active = np.zeros(len(times), dtype=bool)
+
+        return (
+            times,
+            main_freq,       # Stored in the bottom/main position
+            main_amplitude,
+            top_freq,
+            top_amplitude,
+            main_active,
+            top_active,
+        )
+
     bottom_freq, bottom_amplitude = (
         track_bottom_ridge_tfridge_like(
             magnitude=mag_usv,
@@ -790,6 +919,58 @@ def get_dual_freq_traj(
             jump_penalty=0.15,
         )
     )
+
+    # Remove short branch switches
+    cleaned = []
+
+    for freq, amplitude in [
+        (bottom_freq, bottom_amplitude),
+        (top_freq, top_amplitude),
+    ]:
+        freq = freq.copy()
+        amplitude = amplitude.copy()
+        i = 1
+
+        while i < len(freq) - 1:
+            if not (
+                np.isfinite(freq[i - 1])
+                and np.isfinite(freq[i])
+            ):
+                i += 1
+                continue
+
+            baseline = freq[i - 1]
+
+            if abs(freq[i] - baseline) <= 15000:
+                i += 1
+                continue
+
+            start = i
+            j = i + 1
+
+            while (
+                j < len(freq)
+                and j - start <= 4
+                and np.isfinite(freq[j])
+                and abs(freq[j] - baseline) > 5000
+            ):
+                j += 1
+
+            if (
+                j < len(freq)
+                and j - start <= 4
+                and np.isfinite(freq[j])
+                and abs(freq[j] - baseline) <= 5000
+            ):
+                freq[start:j] = np.nan
+                amplitude[start:j] = np.nan
+
+            i = max(j, i + 1)
+
+        cleaned.append((freq, amplitude))
+
+    bottom_freq, bottom_amplitude = cleaned[0]
+    top_freq, top_amplitude = cleaned[1]
 
     bottom_active = np.isfinite(bottom_freq)
     top_active = np.isfinite(top_freq)
@@ -821,25 +1002,75 @@ def export_mft_csv(audio_files, output_file):
 
     return output_file
 
-#Pickle version
-def export_mft_pickle(audio_files, output_file):
+# #Pickle version
+# def export_mft_pickle(audio_files, output_file):
+#     contours = {}
+#     for audio_path in audio_files:
+#         times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
+#         features = extract_usv_features(audio_path)
+
+#         if features is None:
+#             continue
+
+#         features.pop("filename", None)
+#         contours[Path(audio_path).stem] = {
+#             "time_s": times[active_bins],
+#             "frequency_hz": freq_traj[active_bins],
+#             "amplitude": amplitude_traj[active_bins],
+#             "features": features,  # store the numeric features once
+#         }
+
+#     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+#     with open(output_file, "wb") as f:
+#         pickle.dump(contours, f)
+
+#     return output_file
+
+def export_dual_mft_pickle(audio_files, output_file):
     contours = {}
     for audio_path in audio_files:
-        times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
-        features = extract_usv_features(audio_path)
+        (
+            times,
+            bottom_freq,
+            bottom_amplitude,
+            top_freq,
+            top_amplitude,
+            bottom_active,
+            top_active,
+        ) = get_dual_freq_traj(audio_path)
 
-        if features is None:
+        if np.sum(bottom_active) < 2:
             continue
 
-        features.pop("filename", None)
-        contours[Path(audio_path).stem] = {
-            "time_s": times[active_bins],
-            "frequency_hz": freq_traj[active_bins],
-            "amplitude": amplitude_traj[active_bins],
-            "features": features,  # store the numeric features once
+        bottom_times = times[bottom_active]
+        bottom_data = {
+            "time_s": bottom_times,
+            "frequency_hz": bottom_freq[bottom_active],
+            "amplitude": bottom_amplitude[bottom_active],
+            "duration_s": bottom_times[-1] - bottom_times[0],
         }
 
-    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+        has_top = np.sum(top_active) >= 2
+        top_data = None
+        if has_top:
+            top_times = times[top_active]
+
+            top_data = {
+                "time_s": top_times,
+                "frequency_hz": top_freq[top_active],
+                "amplitude": top_amplitude[top_active],
+                "duration_s": top_times[-1] - top_times[0],
+            }
+
+        contours[Path(audio_path).stem] = {
+            "has_multiple_ridges": has_top,
+            "bottom_or_main": bottom_data,
+            "top": top_data,
+        }
+    Path(output_file).parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
     with open(output_file, "wb") as f:
         pickle.dump(contours, f)
 
