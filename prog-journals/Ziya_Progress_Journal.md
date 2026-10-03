@@ -18,9 +18,9 @@
 - Try dropout
 - Try weight decay
 - Could probably add best model saving/tracking @ sm pt
-- RUN AUTOREGRESSIVE VERSION
 
-
+## Oct 3, 2026
+**Duration: **
 
 ## Oct 2, 2026
 **Duration: 2 hrs**
