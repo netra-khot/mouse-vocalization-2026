@@ -15,14 +15,23 @@
 - Splitting up spectrograms into their specific vocalizations
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
-- **Try making the model autoregressive**
-- **Check how well the model is evaluating in terms of the PCA loss (how well is it matching the reconstructed spectrograms)**
+- Try dropout
+- Try weight decay
+- Could probably add best model saving/tracking @ sm pt
+- RUN AUTOREGRESSIVE VERSION
+
+
 
 ## Oct 2, 2026
-**Duration: 1 hr**
+**Duration: 2 hrs**
 
 - Did the PCA inverse transformation reconstruction of max-jumps overall
     - I was completely wrong, the jumps aren't being encoded in the PCs
+- Tried autoregressive model
+    - Didn't rly do much except make it slower so I got rid of it
+- Checked + logged how well model is performing in terms of PCA (how well it matches reconstructed spectrograms)
+- Saved normal model + autoregressive models as pkls
+- Wait im actually dumb i didn't save the autoregressive changes (will rerun tmrw)
 
 ## Oct 1, 2026
 **Duration: 1 hr**
