@@ -1,4 +1,27 @@
 # Netra's Progress Journal #
+# ENTRY 24 &rarr; 10/02/26 (2 hours)
+- goal for today was record trajectories of the mfts with mult simul and adjacent peaks to have a bottom and top trajectory which is so much messier than it seems 
+- to do this i tried to make a new dual-trajectory extraction pipeline for spectrograms containing simultaneous frequency ridges
+    - but i kept the original get_main_freq_traj() method available for ordinary single-ridge vocalizations so there is a check in the branch one
+- Created _track_ridge_branch() to reuse the existing tfridge-style dynamic-programming logic for both branches
+- Added track_bottom_ridge_tfridge_like() and track_top_ridge_tfridge_like() as separate public tracking methods
+    - converted spectrogram magnitudes to decibels and estimated the background using the 20th percentile at each frequency
+- a few requirements for separating top and bottom contours 
+    - candidate peaks to be at least 15 dB above background for lower-ridge and multi-ridge detection
+    - two candidate ridges to be separated by at least 15 kHz before classifying them as simultaneous trajectories
+    - the second peak to be within 8 dB of the strongest peak to reduce detections caused by weak noise
+    - required multiple peaks in at least 20% of active frames and for at least six consecutive frames
+- Added a dual_frame_mask using three-frame binary opening and five-frame binary closing to identify sustained overlap sections --> look into if this is the right method bc its not doing super well
+- Limited the bottom trajectory to frames where two simultaneous ridges were detected
+- Allowed the top trajectory to continue through single-ridge sections, restricting it above the bottom trajectory only when the bottom exists
+- Used up to 12 candidate peaks per frame, a 0.15 jump penalty, and different frequency preferences for the top and bottom branches
+- Tested the system on DBA_3172_810.WAV as an overlapping example and DBA_3244_547.WAV as a single-ridge example, while fixing undefined-variable and module-reloading errors
+
+- ok its late so ill finish this tomorrow i hope bc its not working that well but at least its dynamic and the dual method can be used for all contours
+    - maybe we just do bottom contours like tripp said
+
+- added the contours for new dual method and they have the bottom contour only --> need to look into this more and understand the function better
+- file size too large?? git is complaining look into this too
 ## ENTRY 23 &rarr; 09/26/26 (1.5 hours)
 - after calling Dr. Tripp, need to look into the harmonics + overlapping spectrogram files
     - checked BiWaveGAN paper (where our data is from) and found that each spectrogram is in fact one syllable each so there's no point removing files bc the weird ones are actually complex
