@@ -16,7 +16,6 @@
 - Other features to extract: curviness/complexity proxy (idk like stdev?), max amplitude, frequency rage, slope/rate of change
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 - Try dropout
-- Try weight decay
 - Could probably add best model saving/tracking @ sm pt
 
 ## Oct 3, 2026
