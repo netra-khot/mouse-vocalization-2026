@@ -17,9 +17,20 @@
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
+- Need to check if the training/testing contours were properly downloaded
+- Try more visualization methods for PCA
+- Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
+- Look into wavelets
 
 ## Oct 3, 2026
-**Duration: **
+**Duration: 3 hrs**
+
+- Tried weight decay, confirmed that it was kind of useless
+- Tried running the autoregressive version of the model, also had negligible difference
+- The bottom-harmonic extraction lwk broke the old PCA pipeline (and the model) so I spent some time revising it
+- Refit PCA on the new bottom-ridge data (no pitch-centering), now needs 15 components for 95% variance explained
+- **PCA reconstruction RMSE: 1.720 kHz overall, 2.568 kHz jump subset (WAY better than the old 5.452), 0.630 non-jump**
+- Built interactive Plotly 3D PCA scatter + reconstruction viewer to make inspection faster
 
 ## Oct 2, 2026
 **Duration: 2 hrs**
