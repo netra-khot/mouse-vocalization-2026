@@ -21,9 +21,10 @@
 - Try more visualization methods for PCA
 - Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
 - Look into wavelets
+- Update/reorganize model tracker
 
 ## Oct 3, 2026
-**Duration: 3 hrs**
+**Duration: 3.5 hrs**
 
 - Tried weight decay, confirmed that it was kind of useless
 - Tried running the autoregressive version of the model, also had negligible difference
