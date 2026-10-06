@@ -2,14 +2,7 @@
 
 ## To-Do List
 - Review signal processing code + refined based on application performance
-- Could try compressing it spectrograms to more than 10 components?
-    - I think 13 might be needed for 95%> variance explained
-- Could play with ablations some more
-    - lr, batch size (could be diff w/ normalized pca vectors)
-- Check where the model plateaus
-    - Still isn't converging @ 50 epochs
 - How can we visualize the PCA dimensions? is that even possible?
-- Try different loss functions?
 - Look into fixing rigid form of the spectrograms -> created as a result of the 100 timesteps?
     - Look into some type of blur or something?
 - Splitting up spectrograms into their specific vocalizations
@@ -17,10 +10,8 @@
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
-- Need to check if the training/testing contours were properly downloaded
-- Try more visualization methods for PCA
 - Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
-- Update/reorganize model tracker
+- Convert the oracle representation vs model numbers to RMSE instead of like RMSE per trajectory --> DO THIS BY THURSDAY NIGHT
 
 ## Oct 5, 2026
 **Duration: 1 hr 15 min**
