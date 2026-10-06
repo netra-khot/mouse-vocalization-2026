@@ -20,12 +20,16 @@
 - Need to check if the training/testing contours were properly downloaded
 - Try more visualization methods for PCA
 - Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
-- Look into wavelets
 - Update/reorganize model tracker
 
 ## Oct 5, 2026
-**Duration: **
-- 
+**Duration: 1 hr 15 min**
+- Tested wavelets (haar & db4) as PCA replacement
+    - Adaptive top 15 haar beat PCA (1.046 vs 1.720 kHz)
+    - 7-8 coeff was much worse (2.9 vs 3.8 kHz) so staying with PCA
+- Reorganized model.ipynb like a TON
+    - Made 3 helper files to condense the code
+    - Actually im scared this was a mistake and it'll be too hard to navigate but we'll see lol
 
 ## Oct 4, 2026
 **Duration: 1 hr**
