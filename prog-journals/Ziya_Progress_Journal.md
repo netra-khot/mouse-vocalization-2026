@@ -23,6 +23,14 @@
 - Look into wavelets
 - Update/reorganize model tracker
 
+## Oct 5, 2026
+**Duration: **
+- 
+
+## Oct 4, 2026
+**Duration: 1 hr**
+- Tried adding a lr scheduler
+
 ## Oct 3, 2026
 **Duration: 3.5 hrs**
 
