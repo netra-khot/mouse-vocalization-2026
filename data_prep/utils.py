@@ -1,3 +1,4 @@
+from os import times
 import sys
 from pathlib import Path
 
@@ -31,7 +32,6 @@ def find_audio_file(filename): # check if the file exists
 
     raise FileNotFoundError(f"Could not find {filename}") # same as throw in Java
 
-
 def load_audio(wav_path, target_sr=None):
     audio, sr = sf.read(wav_path)
 
@@ -44,7 +44,6 @@ def load_audio(wav_path, target_sr=None):
 
     return audio.astype(np.float32), sr # return it as a float32 array
 
-
 def bandpass_filter(audio, sr, low_hz=2500, high_hz=100000, order=3):
     nyq = sr / 2 # this is the highest frequency that can be seen in the audio file but high_hz can't be higher than this
     high_hz = min(high_hz, nyq * 0.98)
@@ -52,7 +51,6 @@ def bandpass_filter(audio, sr, low_hz=2500, high_hz=100000, order=3):
 
     sos = butter(order, [low_hz, high_hz], btype="band", fs=sr, output="sos")
     return sosfiltfilt(sos, audio)
-
 
 def get_spectrogram(
     audio_path,
@@ -77,7 +75,6 @@ def get_spectrogram(
 
     return times, freqs, S
 
-
 def quick_spectrogram(sig, sr, n_fft=1024, hop_length=128): # makes the spectrograms we see in audio_preprocess01
     S = np.abs(
         librosa.stft(
@@ -96,7 +93,6 @@ def quick_spectrogram(sig, sr, n_fft=1024, hop_length=128): # makes the spectrog
     )
 
     return librosa.amplitude_to_db(S, ref=np.max), freqs, times
-
 
 def load_spectrogram( # this entire method basically uses methods above to load and plot a spectrogram for given file
     filename,
@@ -404,7 +400,6 @@ def get_main_freq_traj(
 
     return times, freq_traj, amplitude_traj, active_bins
 
-
 def _track_ridge_branch(
     magnitude,
     freqs,
@@ -471,9 +466,11 @@ def _track_ridge_branch(
         if len(peaks) > 0:
             strongest_peak_db = np.max(magnitude_db[peaks, t])
 
+            maximum_drop_db = 20 if branch == "top" else 12
+
             strong_enough = (
                 magnitude_db[peaks, t]
-                >= strongest_peak_db - 12
+                >= strongest_peak_db - maximum_drop_db
             )
 
             peaks = peaks[strong_enough]
@@ -487,21 +484,18 @@ def _track_ridge_branch(
             db_above_noise = db_above_noise[[lowest_index]]
 
         # so this is making sure the top ridge must be above the detected bottom ridge
-        if branch == "top":
-            if (
-                bottom_freq_traj is None
-                or not np.isfinite(bottom_freq_traj[t])
-            ):
-                peaks = np.array([], dtype=int)
-                db_above_noise = np.array([])
-            else:
-                keep = (
-                    freqs[peaks]
-                    >= bottom_freq_traj[t] + min_separation_hz
-                )
+        if (
+            branch == "top"
+            and bottom_freq_traj is not None
+            and np.isfinite(bottom_freq_traj[t])
+        ):
+            keep = (
+                freqs[peaks]
+                >= bottom_freq_traj[t] + min_separation_hz
+            )
 
-                peaks = peaks[keep]
-                db_above_noise = db_above_noise[keep]
+            peaks = peaks[keep]
+            db_above_noise = db_above_noise[keep]
 
         if len(peaks) == 0:
             candidate_bins_by_time.append(np.array([], dtype=int))
@@ -693,7 +687,6 @@ def track_top_ridge_tfridge_like(
         **kwargs,
     )
 
-
 def get_dual_freq_traj(
     audio_path,
     freq_min=20000,
@@ -787,6 +780,8 @@ def get_dual_freq_traj(
 
     active_frame_count = np.sum(detected_bins)
 
+    dual_frame_mask = np.zeros(len(times), dtype=bool)
+
     for t in range(len(times)):
         if not detected_bins[t]:
             current_run = 0
@@ -833,18 +828,28 @@ def get_dual_freq_traj(
 
             # Require a strong second peak separated by 15 kHz
             if (
-                separation >= 15000
-                and amplitude_difference <= 8
+                separation >= 10000
+                and amplitude_difference <= 12
             ):
                 second_ridge_found = True
                 break
 
         if second_ridge_found:
+            dual_frame_mask[t] = True
             multiple_peak_frames += 1
             current_run += 1
             longest_run = max(longest_run, current_run)
         else:
             current_run = 0
+    dual_frame_mask = binary_opening(
+        dual_frame_mask,
+        structure=np.ones(3),
+    )
+
+    dual_frame_mask = binary_closing(
+        dual_frame_mask,
+        structure=np.ones(5),
+    )
 
     minimum_multiple_frames = max(
         6,
@@ -896,7 +901,7 @@ def get_dual_freq_traj(
         track_bottom_ridge_tfridge_like(
             magnitude=mag_usv,
             freqs=freqs_usv,
-            active_bins=detected_bins,
+            active_bins=detected_bins & dual_frame_mask,
             threshold_above_noise_db=15,
             noise_percentile=20,
             branch_preference_db=25,
@@ -905,27 +910,57 @@ def get_dual_freq_traj(
         )
     )
 
+    # replace sudden bottom-ridge jumps with gaps TODO could remove this
+    bottom_jumps = np.where(
+        np.abs(np.diff(bottom_freq)) > 10000
+    )[0] + 1
+
+    bottom_freq[bottom_jumps] = np.nan
+    bottom_amplitude[bottom_jumps] = np.nan
+
     top_freq, top_amplitude = (
         track_top_ridge_tfridge_like(
             magnitude=mag_usv,
             freqs=freqs_usv,
             active_bins=detected_bins,
             bottom_freq_traj=bottom_freq,
-            threshold_above_noise_db=15,
+            threshold_above_noise_db=10,
             noise_percentile=20,
-            branch_preference_db=12,
-            min_separation_hz=2000,
+            branch_preference_db=6,
+            min_separation_hz=10000,
             top_k=12,
-            jump_penalty=0.15,
+            jump_penalty=0.25,
         )
+    ) 
+    # Remove short downward branch switches from the top trajectory
+    changes = np.diff(top_freq)
+
+    drops = np.where(changes < -10000)[0] + 1
+    rises = np.where(changes > 10000)[0] + 1
+
+    for start in drops:
+        possible_ends = rises[
+            (rises > start) & (rises - start <= 35)
+        ]
+
+        if len(possible_ends):
+            end = possible_ends[0]
+            top_freq[start:end] = np.nan
+            top_amplitude[start:end] = np.nan
+
+    # Connect the surrounding upper-ridge sections
+    top_freq = (
+        pd.Series(top_freq)
+        .interpolate(limit=35, limit_area="inside")
+        .to_numpy()
     )
+       
 
     # Remove short branch switches
     cleaned = []
 
     for freq, amplitude in [
         (bottom_freq, bottom_amplitude),
-        (top_freq, top_amplitude),
     ]:
         freq = freq.copy()
         amplitude = amplitude.copy()
@@ -970,7 +1005,6 @@ def get_dual_freq_traj(
         cleaned.append((freq, amplitude))
 
     bottom_freq, bottom_amplitude = cleaned[0]
-    top_freq, top_amplitude = cleaned[1]
 
     bottom_active = np.isfinite(bottom_freq)
     top_active = np.isfinite(top_freq)
@@ -1002,30 +1036,7 @@ def export_mft_csv(audio_files, output_file):
 
     return output_file
 
-# #Pickle version
-# def export_mft_pickle(audio_files, output_file):
-#     contours = {}
-#     for audio_path in audio_files:
-#         times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
-#         features = extract_usv_features(audio_path)
-
-#         if features is None:
-#             continue
-
-#         features.pop("filename", None)
-#         contours[Path(audio_path).stem] = {
-#             "time_s": times[active_bins],
-#             "frequency_hz": freq_traj[active_bins],
-#             "amplitude": amplitude_traj[active_bins],
-#             "features": features,  # store the numeric features once
-#         }
-
-#     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-#     with open(output_file, "wb") as f:
-#         pickle.dump(contours, f)
-
-#     return output_file
-
+#Pickle version
 def export_dual_mft_pickle(audio_files, output_file):
     contours = {}
     for audio_path in audio_files:

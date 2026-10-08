@@ -1,4 +1,9 @@
 # Netra's Progress Journal #
+# ENTRY 25 &rarr; 10/07/26 (45 mins)
+- not lots of time but improved top ridge extraction a bit, will finish this soon
+-  some issues were that the top ridge tracker deleted its peaks when the bottom ridge was missing
+- added code that detects bottom-trajectory frequency jumps larger than 10 kHz, similar to code we already have to separate the top and bottom, but repurposed it 
+    - It replaces those points and their amplitudes with NaN, creating gaps instead of inaccurate spikes
 # ENTRY 24 &rarr; 10/02/26 (2 hours)
 - goal for today was record trajectories of the mfts with mult simul and adjacent peaks to have a bottom and top trajectory which is so much messier than it seems 
 - to do this i tried to make a new dual-trajectory extraction pipeline for spectrograms containing simultaneous frequency ridges
@@ -15,7 +20,7 @@
 - Limited the bottom trajectory to frames where two simultaneous ridges were detected
 - Allowed the top trajectory to continue through single-ridge sections, restricting it above the bottom trajectory only when the bottom exists
 - Used up to 12 candidate peaks per frame, a 0.15 jump penalty, and different frequency preferences for the top and bottom branches
-- Tested the system on DBA_3172_810.WAV as an overlapping example and DBA_3244_547.WAV as a single-ridge example, while fixing undefined-variable and module-reloading errors
+- tested system on DBA_3172_810.WAV as an overlapping example and DBA_3244_547.WAV as a single-ridge example
 
 - ok its late so ill finish this tomorrow i hope bc its not working that well but at least its dynamic and the dual method can be used for all contours
     - maybe we just do bottom contours like tripp said
