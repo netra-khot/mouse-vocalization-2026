@@ -57,8 +57,7 @@ def evaluate(trajectories, model, pca, scaler, batch_size=128, pca_dim=15):
     model.train()  # flip it back so the next epoch trains normally
     return sum(losses) / len(losses)
 
-
-def train(model, optimizer, train_trajectories, test_trajectories, pca, 
+def train(model, optimizer, train_trajectories, test_trajectories, pca,
           scaler, epochs=55, batch_size=128, pca_dim=15, scheduler=None):
     """trains the controller. returns (train_losses, test_losses), one rmse in khz per epoch.
     hitting the stop button ends training early but you still get the losses so far.
@@ -67,12 +66,17 @@ def train(model, optimizer, train_trajectories, test_trajectories, pca,
     train_losses, test_losses = [], []
 
     try:
-        # progress bar over epochs, postfix shows the latest losses + lr
-        pbar = tqdm(range(epochs), desc="training")
-        for epoch in pbar:
+        for epoch in range(epochs):
             epoch_losses = []
 
-            for i in range(0, len(train_trajectories), batch_size):
+            # one bar per epoch, fills up as the batches run and stays on screen after
+            batch_bar = tqdm(
+                range(0, len(train_trajectories), batch_size),
+                desc=f"epoch {epoch + 1}/{epochs}",
+                leave=True,
+            )
+
+            for i in batch_bar:
                 pca_vectors, targets = prepare_batch(
                     train_trajectories[i:i + batch_size], pca, scaler, pca_dim
                 )
@@ -85,6 +89,8 @@ def train(model, optimizer, train_trajectories, test_trajectories, pca,
 
                 epoch_losses.append(loss.item())
 
+            batch_bar.close()
+
             train_loss = sum(epoch_losses) / len(epoch_losses)
             test_loss = evaluate(test_trajectories, model, pca, scaler, batch_size, pca_dim)
 
@@ -92,14 +98,13 @@ def train(model, optimizer, train_trajectories, test_trajectories, pca,
             if scheduler is not None:
                 scheduler.step(test_loss)
 
-            pbar.set_postfix(
-                train=f"{train_loss:.3f}",
-                test=f"{test_loss:.3f}",
-                lr=f"{optimizer.param_groups[0]['lr']:.1e}",
-            )
-            # tqdm.write instead of print so the log lines don't mess up the bar
+            # these two lines are the ones that went missing, don't delete them
+            train_losses.append(train_loss)
+            test_losses.append(test_loss)
+
+            # tqdm.write puts the results on the line right under the bar
             tqdm.write(
-                f"epoch {epoch + 1}: train = {train_loss:.4f} kHz, test = {test_loss:.4f} kHz, "
+                f"  train = {train_loss:.4f} kHz, test = {test_loss:.4f} kHz, "
                 f"lr = {optimizer.param_groups[0]['lr']:.2e}"
             )
     except KeyboardInterrupt:
@@ -107,7 +112,6 @@ def train(model, optimizer, train_trajectories, test_trajectories, pca,
         print(f"stopped early after {len(train_losses)} epochs")
 
     return train_losses, test_losses
-
 
 def predict_all(model, trajectories, pca, scaler, pca_dim=15, batch_size=256):
     """predicted f0 (hz) for every trajectory, as a numpy array of shape (n, 100)"""
