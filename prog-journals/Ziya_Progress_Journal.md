@@ -13,6 +13,10 @@
 - Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
 - Convert the oracle representation vs model numbers to RMSE instead of like RMSE per trajectory --> DO THIS BY THURSDAY NIGHT
 
+## Oct 7, 2026
+** Duration: 1 hr**
+- Got numbers needed for Tripp email (in RMSE units instead of whatever it was before)
+
 ## Oct 5, 2026
 **Duration: 1 hr 15 min**
 - Tested wavelets (haar & db4) as PCA replacement

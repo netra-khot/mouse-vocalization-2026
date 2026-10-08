@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 
 # model/ is one level below the project root, and the root is where QMC_mouseUSV/ and data_prep/ live
 # so this makes the imports below work no matter what the notebook does with sys.path
@@ -66,7 +67,9 @@ def train(model, optimizer, train_trajectories, test_trajectories, pca,
     train_losses, test_losses = [], []
 
     try:
-        for epoch in range(epochs):
+        # progress bar over epochs, postfix shows the latest losses + lr
+        pbar = tqdm(range(epochs), desc="training")
+        for epoch in pbar:
             epoch_losses = []
 
             for i in range(0, len(train_trajectories), batch_size):
@@ -89,9 +92,13 @@ def train(model, optimizer, train_trajectories, test_trajectories, pca,
             if scheduler is not None:
                 scheduler.step(test_loss)
 
-            train_losses.append(train_loss)
-            test_losses.append(test_loss)
-            print(
+            pbar.set_postfix(
+                train=f"{train_loss:.3f}",
+                test=f"{test_loss:.3f}",
+                lr=f"{optimizer.param_groups[0]['lr']:.1e}",
+            )
+            # tqdm.write instead of print so the log lines don't mess up the bar
+            tqdm.write(
                 f"epoch {epoch + 1}: train = {train_loss:.4f} kHz, test = {test_loss:.4f} kHz, "
                 f"lr = {optimizer.param_groups[0]['lr']:.2e}"
             )
@@ -124,43 +131,39 @@ def per_example_rmse_khz(a, b):
     return np.sqrt(np.mean((a - b) ** 2, axis=1)) / 1000
 
 
-def diagnose(model, trajectories, pca, scaler, pca_dim=15, jump_percentile=90):
-    """compares the model against the pca oracle, overall and on the jumpiest trajectories.
-    prints the summary and returns the per example arrays in a dict.
+def rmse_khz(a, b):
+    """pooled rmse in khz over every point in a vs b. same math as the training loss, so the numbers line up"""
+    return np.sqrt(np.mean((a - b) ** 2)) / 1000
 
-    oracle = rebuild each trajectory from its own pca vector. that's the best case for this
-    representation, but not a hard floor bc the model can beat it (it has, a few times)
-    jump subset = the top (100 - jump_percentile) percent by biggest frame to frame change"""
+
+def diagnose(model, trajectories, pca, scaler, pca_dim=15, jump_percentile=90):
+    """compares the model against the pca reconstruction, overall and on the jumpiest trajectories.
+    everything printed is rmse in khz, same metric as train/test loss.
+    returns the per example arrays too (for finding worst cases / plotting)"""
     X = np.stack(trajectories)
 
-    # oracle: pca vector -> straight back to a trajectory, no model involved
-    # zeroing everything past pca_dim (does nothing when pca_dim equals the number of components)
+    # reconstruction: pca vector -> straight back to a trajectory, no model involved
     vectors = pca.transform(X)
     vectors[:, pca_dim:] = 0
-    oracle = pca.inverse_transform(vectors)
+    recon = pca.inverse_transform(vectors)
 
     preds = predict_all(model, trajectories, pca, scaler, pca_dim)
-
-    pca_only = per_example_rmse_khz(oracle, X)               # error from the pca squish alone
-    model_vs_real = per_example_rmse_khz(preds, X)           # total error (the number we report)
-    model_vs_oracle = per_example_rmse_khz(preds, oracle)    # model's own gap on top of what pca loses
 
     # jumpiest = biggest change between two neighboring timesteps
     max_jump = np.max(np.abs(np.diff(X, axis=1)), axis=1)
     jump_mask = max_jump >= np.percentile(max_jump, jump_percentile)
 
-    print(f"PCA-only error (oracle reconstruction vs real): {pca_only.mean():.3f} kHz avg")
-    print(f"model vs real (total error): {model_vs_real.mean():.3f} kHz avg")
-    print(f"model vs oracle reconstruction (model's own gap): {model_vs_oracle.mean():.3f} kHz avg")
-    print(f"PCA-only error (jump subset): {pca_only[jump_mask].mean():.3f} kHz avg")
-    print(f"model vs real (jump subset): {model_vs_real[jump_mask].mean():.3f} kHz avg")
-    print(f"model vs oracle (jump subset): {model_vs_oracle[jump_mask].mean():.3f} kHz avg")
+    print(f"PCA reconstruction vs real (all): {rmse_khz(recon, X):.3f} kHz RMSE")
+    print(f"model vs real (all): {rmse_khz(preds, X):.3f} kHz RMSE")
+    print(f"model vs PCA reconstruction (all): {rmse_khz(preds, recon):.3f} kHz RMSE")
+    print(f"PCA reconstruction vs real (jump subset): {rmse_khz(recon[jump_mask], X[jump_mask]):.3f} kHz RMSE")
+    print(f"model vs real (jump subset): {rmse_khz(preds[jump_mask], X[jump_mask]):.3f} kHz RMSE")
+    print(f"model vs PCA reconstruction (jump subset): {rmse_khz(preds[jump_mask], recon[jump_mask]):.3f} kHz RMSE")
 
     return {
-        "pca_only": pca_only,
-        "model_vs_real": model_vs_real,
-        "model_vs_oracle": model_vs_oracle,
+        "model_vs_real_per_example": per_example_rmse_khz(preds, X),
+        "pca_only_per_example": per_example_rmse_khz(recon, X),
         "jump_mask": jump_mask,
         "preds": preds,
-        "oracle": oracle,
+        "recon": recon,
     }
