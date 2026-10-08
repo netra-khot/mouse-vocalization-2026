@@ -104,8 +104,7 @@ def train(model, optimizer, train_trajectories, test_trajectories, pca,
 
             # tqdm.write puts the results on the line right under the bar
             tqdm.write(
-                f"  train = {train_loss:.4f} kHz, test = {test_loss:.4f} kHz, "
-                f"lr = {optimizer.param_groups[0]['lr']:.2e}"
+                f"  train = {train_loss:.4f} kHz, test = {test_loss:.4f} kHz"
             )
     except KeyboardInterrupt:
         # so stopping a run early doesn't throw away the loss curves
