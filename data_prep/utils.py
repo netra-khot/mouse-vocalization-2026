@@ -466,9 +466,11 @@ def _track_ridge_branch(
         if len(peaks) > 0:
             strongest_peak_db = np.max(magnitude_db[peaks, t])
 
+            maximum_drop_db = 20 if branch == "top" else 12
+
             strong_enough = (
                 magnitude_db[peaks, t]
-                >= strongest_peak_db - 12
+                >= strongest_peak_db - maximum_drop_db
             )
 
             peaks = peaks[strong_enough]
@@ -482,21 +484,18 @@ def _track_ridge_branch(
             db_above_noise = db_above_noise[[lowest_index]]
 
         # so this is making sure the top ridge must be above the detected bottom ridge
-        if branch == "top":
-            if (
-                bottom_freq_traj is None
-                or not np.isfinite(bottom_freq_traj[t])
-            ):
-                peaks = np.array([], dtype=int)
-                db_above_noise = np.array([])
-            else:
-                keep = (
-                    freqs[peaks]
-                    >= bottom_freq_traj[t] + min_separation_hz
-                )
+        if (
+            branch == "top"
+            and bottom_freq_traj is not None
+            and np.isfinite(bottom_freq_traj[t])
+        ):
+            keep = (
+                freqs[peaks]
+                >= bottom_freq_traj[t] + min_separation_hz
+            )
 
-                peaks = peaks[keep]
-                db_above_noise = db_above_noise[keep]
+            peaks = peaks[keep]
+            db_above_noise = db_above_noise[keep]
 
         if len(peaks) == 0:
             candidate_bins_by_time.append(np.array([], dtype=int))
@@ -925,21 +924,43 @@ def get_dual_freq_traj(
             freqs=freqs_usv,
             active_bins=detected_bins,
             bottom_freq_traj=bottom_freq,
-            threshold_above_noise_db=15,
+            threshold_above_noise_db=10,
             noise_percentile=20,
-            branch_preference_db=12,
-            min_separation_hz=2000,
+            branch_preference_db=6,
+            min_separation_hz=10000,
             top_k=12,
-            jump_penalty=0.15,
+            jump_penalty=0.25,
         )
+    ) 
+    # Remove short downward branch switches from the top trajectory
+    changes = np.diff(top_freq)
+
+    drops = np.where(changes < -10000)[0] + 1
+    rises = np.where(changes > 10000)[0] + 1
+
+    for start in drops:
+        possible_ends = rises[
+            (rises > start) & (rises - start <= 35)
+        ]
+
+        if len(possible_ends):
+            end = possible_ends[0]
+            top_freq[start:end] = np.nan
+            top_amplitude[start:end] = np.nan
+
+    # Connect the surrounding upper-ridge sections
+    top_freq = (
+        pd.Series(top_freq)
+        .interpolate(limit=35, limit_area="inside")
+        .to_numpy()
     )
+       
 
     # Remove short branch switches
     cleaned = []
 
     for freq, amplitude in [
         (bottom_freq, bottom_amplitude),
-        (top_freq, top_amplitude),
     ]:
         freq = freq.copy()
         amplitude = amplitude.copy()
@@ -984,7 +1005,6 @@ def get_dual_freq_traj(
         cleaned.append((freq, amplitude))
 
     bottom_freq, bottom_amplitude = cleaned[0]
-    top_freq, top_amplitude = cleaned[1]
 
     bottom_active = np.isfinite(bottom_freq)
     top_active = np.isfinite(top_freq)
