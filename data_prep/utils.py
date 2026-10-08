@@ -1,3 +1,4 @@
+from os import times
 import sys
 from pathlib import Path
 
@@ -31,7 +32,6 @@ def find_audio_file(filename): # check if the file exists
 
     raise FileNotFoundError(f"Could not find {filename}") # same as throw in Java
 
-
 def load_audio(wav_path, target_sr=None):
     audio, sr = sf.read(wav_path)
 
@@ -44,7 +44,6 @@ def load_audio(wav_path, target_sr=None):
 
     return audio.astype(np.float32), sr # return it as a float32 array
 
-
 def bandpass_filter(audio, sr, low_hz=2500, high_hz=100000, order=3):
     nyq = sr / 2 # this is the highest frequency that can be seen in the audio file but high_hz can't be higher than this
     high_hz = min(high_hz, nyq * 0.98)
@@ -52,7 +51,6 @@ def bandpass_filter(audio, sr, low_hz=2500, high_hz=100000, order=3):
 
     sos = butter(order, [low_hz, high_hz], btype="band", fs=sr, output="sos")
     return sosfiltfilt(sos, audio)
-
 
 def get_spectrogram(
     audio_path,
@@ -77,7 +75,6 @@ def get_spectrogram(
 
     return times, freqs, S
 
-
 def quick_spectrogram(sig, sr, n_fft=1024, hop_length=128): # makes the spectrograms we see in audio_preprocess01
     S = np.abs(
         librosa.stft(
@@ -96,7 +93,6 @@ def quick_spectrogram(sig, sr, n_fft=1024, hop_length=128): # makes the spectrog
     )
 
     return librosa.amplitude_to_db(S, ref=np.max), freqs, times
-
 
 def load_spectrogram( # this entire method basically uses methods above to load and plot a spectrogram for given file
     filename,
@@ -404,7 +400,6 @@ def get_main_freq_traj(
 
     return times, freq_traj, amplitude_traj, active_bins
 
-
 def _track_ridge_branch(
     magnitude,
     freqs,
@@ -693,7 +688,6 @@ def track_top_ridge_tfridge_like(
         **kwargs,
     )
 
-
 def get_dual_freq_traj(
     audio_path,
     freq_min=20000,
@@ -787,6 +781,8 @@ def get_dual_freq_traj(
 
     active_frame_count = np.sum(detected_bins)
 
+    dual_frame_mask = np.zeros(len(times), dtype=bool)
+
     for t in range(len(times)):
         if not detected_bins[t]:
             current_run = 0
@@ -833,18 +829,28 @@ def get_dual_freq_traj(
 
             # Require a strong second peak separated by 15 kHz
             if (
-                separation >= 15000
-                and amplitude_difference <= 8
+                separation >= 10000
+                and amplitude_difference <= 12
             ):
                 second_ridge_found = True
                 break
 
         if second_ridge_found:
+            dual_frame_mask[t] = True
             multiple_peak_frames += 1
             current_run += 1
             longest_run = max(longest_run, current_run)
         else:
             current_run = 0
+    dual_frame_mask = binary_opening(
+        dual_frame_mask,
+        structure=np.ones(3),
+    )
+
+    dual_frame_mask = binary_closing(
+        dual_frame_mask,
+        structure=np.ones(5),
+    )
 
     minimum_multiple_frames = max(
         6,
@@ -896,7 +902,7 @@ def get_dual_freq_traj(
         track_bottom_ridge_tfridge_like(
             magnitude=mag_usv,
             freqs=freqs_usv,
-            active_bins=detected_bins,
+            active_bins=detected_bins & dual_frame_mask,
             threshold_above_noise_db=15,
             noise_percentile=20,
             branch_preference_db=25,
@@ -904,6 +910,14 @@ def get_dual_freq_traj(
             jump_penalty=0.15,
         )
     )
+
+    # replace sudden bottom-ridge jumps with gaps TODO could remove this
+    bottom_jumps = np.where(
+        np.abs(np.diff(bottom_freq)) > 10000
+    )[0] + 1
+
+    bottom_freq[bottom_jumps] = np.nan
+    bottom_amplitude[bottom_jumps] = np.nan
 
     top_freq, top_amplitude = (
         track_top_ridge_tfridge_like(
@@ -1002,30 +1016,7 @@ def export_mft_csv(audio_files, output_file):
 
     return output_file
 
-# #Pickle version
-# def export_mft_pickle(audio_files, output_file):
-#     contours = {}
-#     for audio_path in audio_files:
-#         times, freq_traj, amplitude_traj, active_bins = get_main_freq_traj(audio_path)
-#         features = extract_usv_features(audio_path)
-
-#         if features is None:
-#             continue
-
-#         features.pop("filename", None)
-#         contours[Path(audio_path).stem] = {
-#             "time_s": times[active_bins],
-#             "frequency_hz": freq_traj[active_bins],
-#             "amplitude": amplitude_traj[active_bins],
-#             "features": features,  # store the numeric features once
-#         }
-
-#     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-#     with open(output_file, "wb") as f:
-#         pickle.dump(contours, f)
-
-#     return output_file
-
+#Pickle version
 def export_dual_mft_pickle(audio_files, output_file):
     contours = {}
     for audio_path in audio_files:
