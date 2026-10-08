@@ -11,7 +11,7 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 - Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
-- Convert the oracle representation vs model numbers to RMSE instead of like RMSE per trajectory --> DO THIS BY THURSDAY NIGHT
+- Try using data augmentation from the arxiv paper Dr. Tripp sent? (discuss on call if we should try this)
 
 ## Oct 7, 2026
 ** Duration: 1 hr**
