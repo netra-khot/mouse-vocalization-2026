@@ -798,8 +798,8 @@ def get_dual_freq_traj(
             - noise_floor_db[peaks]
         )
 
-        # Peaks must be at least 15 dB above background
-        peaks = peaks[db_above_noise >= 15]
+        # Peaks must be at least 10 dB above background
+        peaks = peaks[db_above_noise >= 10]
 
         if len(peaks) < 2:
             current_run = 0
@@ -848,7 +848,7 @@ def get_dual_freq_traj(
 
     dual_frame_mask = binary_closing(
         dual_frame_mask,
-        structure=np.ones(5),
+        structure=np.ones(30),
     )
 
     minimum_multiple_frames = max(
@@ -910,13 +910,7 @@ def get_dual_freq_traj(
         )
     )
 
-    # replace sudden bottom-ridge jumps with gaps TODO could remove this
-    bottom_jumps = np.where(
-        np.abs(np.diff(bottom_freq)) > 10000
-    )[0] + 1
-
-    bottom_freq[bottom_jumps] = np.nan
-    bottom_amplitude[bottom_jumps] = np.nan
+   
 
     top_freq, top_amplitude = (
         track_top_ridge_tfridge_like(
@@ -926,10 +920,10 @@ def get_dual_freq_traj(
             bottom_freq_traj=bottom_freq,
             threshold_above_noise_db=10,
             noise_percentile=20,
-            branch_preference_db=6,
-            min_separation_hz=10000,
+            branch_preference_db=0,
+            min_separation_hz=2000,
             top_k=12,
-            jump_penalty=0.25,
+            jump_penalty=0.8,
         )
     ) 
     # Remove short downward branch switches from the top trajectory
@@ -954,6 +948,9 @@ def get_dual_freq_traj(
         .interpolate(limit=35, limit_area="inside")
         .to_numpy()
     )
+
+    
+
        
 
     # Remove short branch switches
@@ -1005,6 +1002,32 @@ def get_dual_freq_traj(
         cleaned.append((freq, amplitude))
 
     bottom_freq, bottom_amplitude = cleaned[0]
+
+    # Remove bottom points that actually belong to the top trajectory
+    bottom_is_top = (
+        np.isfinite(bottom_freq)
+        & np.isfinite(top_freq)
+        & ((top_freq - bottom_freq) < 8000)
+    )
+
+    bottom_freq[bottom_is_top] = np.nan
+    bottom_amplitude[bottom_is_top] = np.nan
+
+    # Remove short downward excursions that quickly return
+    changes = np.diff(bottom_freq)
+
+    drops = np.where(changes < -10000)[0] + 1
+    rises = np.where(changes > 10000)[0] + 1
+
+    for start in drops:
+        possible_ends = rises[
+            (rises > start) & (rises - start <= 6)
+        ]
+
+        if len(possible_ends):
+            end = possible_ends[0]
+            bottom_freq[start:end] = np.nan
+            bottom_amplitude[start:end] = np.nan
 
     bottom_active = np.isfinite(bottom_freq)
     top_active = np.isfinite(top_freq)
