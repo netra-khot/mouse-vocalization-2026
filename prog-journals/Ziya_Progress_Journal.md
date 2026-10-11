@@ -13,6 +13,10 @@
 - Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
 - Try using data augmentation from the arxiv paper Dr. Tripp sent? (discuss on call if we should try this)
 
+## Oct 11, 2026
+** Duration: **
+- 
+
 ## Oct 7, 2026
 ** Duration: 1 hr**
 - Got numbers needed for Tripp email (in RMSE units instead of whatever it was before)

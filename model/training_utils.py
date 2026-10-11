@@ -1,6 +1,7 @@
 # the physics chain, loss, eval, training loop and diagnostics for the lstm controller
 # everything that used to be copy pasted all over model.ipynb lives here now
 
+from asyncio import subprocess
 import sys
 from pathlib import Path
 import numpy as np
@@ -170,3 +171,9 @@ def diagnose(model, trajectories, pca, scaler, pca_dim=15, jump_percentile=90):
         "preds": preds,
         "recon": recon,
     }
+
+def play_sound(sound="/System/Library/Sounds/Glass.aiff", times=3):
+    """plays a mac system sound so you know a run finished (mac only, uses afplay).
+    swap the path for your own sound file if you have one"""
+    for _ in range(times):
+        subprocess.run(["afplay", sound])
