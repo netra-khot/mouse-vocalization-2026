@@ -1,4 +1,4 @@
-# mouse_vocalization_2026
+# Mouse USV Modeling Project (2026-27)
 
 https://docs.google.com/spreadsheets/d/1Aic5kjMXGCXN6PP5f9w_ca8JSVuLZ6t6upZklDULCsI/edit?gid=0#gid=0
 
