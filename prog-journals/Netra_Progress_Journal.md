@@ -1,10 +1,11 @@
 # Netra's Progress Journal #
-# ENTRY 25 &rarr; 10/07/26 (45 mins)
+fix DBA_3168_248
+## ENTRY 25 &rarr; 10/07/26 (45 mins)
 - not lots of time but improved top ridge extraction a bit, will finish this soon
 -  some issues were that the top ridge tracker deleted its peaks when the bottom ridge was missing
 - added code that detects bottom-trajectory frequency jumps larger than 10 kHz, similar to code we already have to separate the top and bottom, but repurposed it 
     - It replaces those points and their amplitudes with NaN, creating gaps instead of inaccurate spikes
-# ENTRY 24 &rarr; 10/02/26 (2 hours)
+## ENTRY 24 &rarr; 10/02/26 (2 hours)
 - goal for today was record trajectories of the mfts with mult simul and adjacent peaks to have a bottom and top trajectory which is so much messier than it seems 
 - to do this i tried to make a new dual-trajectory extraction pipeline for spectrograms containing simultaneous frequency ridges
     - but i kept the original get_main_freq_traj() method available for ordinary single-ridge vocalizations so there is a check in the branch one
