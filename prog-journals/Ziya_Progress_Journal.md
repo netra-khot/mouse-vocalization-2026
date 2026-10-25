@@ -10,12 +10,17 @@
 - Could try other optimizers instead of Adam (SGD, AdamW, RMSprop) (is this worth it?)
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
-- Try running the model on top ridge extraction (why do I feel like that'll lwk be better b/c there's less jumps needed)
-- Try using data augmentation from the arxiv paper Dr. Tripp sent? (discuss on call if we should try this)
 
 ## Oct 11, 2026
-** Duration: **
-- 
+** Duration: 4 hrs**
+- Finished reading paper Dr. Tripp sent
+- Got the updated top ridge stuff from Netra + build the target using top ridge
+- Refit PCA on the top ridge target (12 comps for 95% variance)
+- Made respresentation reconstruction spreadsheet (linked on README for easy access)
+- Tried a bunch of different nonlinear representations
+    - Actually i literally just tried 2 (sequence autoencoder & MLP autoencoder)
+- Tried new bottom ridge baseline (10 dims)
+- Need to send Dr. Tripp an update email basically saying I dont think its worth it to switch the representations b/c I dont think they're performing that much better
 
 ## Oct 7, 2026
 ** Duration: 1 hr**
