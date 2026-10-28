@@ -11,6 +11,11 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Oct 27, 2026
+**Duration: **
+- Figured out project changes and new direction (ok so this took longer than expected lol)
+- Compared my stat methods w/ netra
+
 ## Oct 23, 2026
 **Duration: 1 hr**
 - Brief statistical analysis of jumps
