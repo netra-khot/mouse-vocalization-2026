@@ -11,6 +11,10 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Oct 23, 2026
+**Duration: 1 hr**
+- Brief statistical analysis of jumps
+
 ## Oct 11, 2026
 ** Duration: 4 hrs**
 - Finished reading paper Dr. Tripp sent
