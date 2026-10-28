@@ -12,9 +12,16 @@
 - Could probably add best model saving/tracking @ sm pt
 
 ## Oct 27, 2026
-**Duration: **
+**Duration: 1 hr**
 - Figured out project changes and new direction (ok so this took longer than expected lol)
 - Compared my stat methods w/ netra
+- Setup jump_study.ipynb using netra's jump detection utilities on the raw WAV files, added edge trimming
+- Ran on 400 random calls: 299 candidate jumps, 187 after trimming 5 ms at the call start and end (the removed ones were mostly onset artifacts near 41 kHz)
+- Direction depends on starting frequency: low starts jump up, high starts jump down
+    - Jump size depends on where the call starts, so it isn't a fixed graph in kHz
+- Next: need to check calls by eye, and test the landing band vs fixed ratio
+    - Specifically need to check the 6 weird jumps landing near 40 kHz
+    - Need to send Dr. Tripp an update (hopefully by Thursday at latest... shooting for Wednesday tho!)
 
 ## Oct 23, 2026
 **Duration: 1 hr**
