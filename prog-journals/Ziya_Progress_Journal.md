@@ -11,6 +11,10 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Oct 29, 2026
+**Duration: **
+- 
+
 ## Oct 27, 2026
 **Duration: 1 hr**
 - Figured out project changes and new direction (ok so this took longer than expected lol)
