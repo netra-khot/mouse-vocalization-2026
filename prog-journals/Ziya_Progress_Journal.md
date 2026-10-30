@@ -12,8 +12,8 @@
 - Could probably add best model saving/tracking @ sm pt
 
 ## Oct 29, 2026
-**Duration: **
-- 
+**Duration: 2.5 hrs**
+- stats + email (too tired to write summary will add later at sm point)
 
 ## Oct 27, 2026
 **Duration: 1 hr**
