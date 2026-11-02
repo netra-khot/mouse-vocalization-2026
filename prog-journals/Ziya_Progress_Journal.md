@@ -11,6 +11,12 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Nov 1, 2026
+**Duration: 1.5 hrs**
+- Fixed venv issue (idk why this keeps happening again)
+- Wrote email for Dr. Tripp
+    - Mainly js checking around QMCMouse files and the Hakansson paper
+    
 ## Oct 29, 2026
 **Duration: 2.5 hrs**
 - stats + email (too tired to write summary will add later at sm point)
