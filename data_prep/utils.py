@@ -138,6 +138,24 @@ def load_spectrogram( # this entire method basically uses methods above to load 
 
     return S_db, freqs, times
 
+def background_snr_db(magnitude, freqs, window_hz=20000):
+    """dB above the local background, for every (frequency, time) bin.
+
+    Background = median over a window_hz-wide band of neighbouring frequencies in the same
+    frame. A USV band is only a few bins wide so it barely moves the median, and unlike a
+    percentile over time this works even when the call fills most of the clip.
+    In pure noise the strongest bin of a frame is often 10-15 dB above this median, so
+    thresholds below ~15 dB will let some noise through.
+    """
+    from scipy.ndimage import median_filter
+
+    magnitude_db = 20 * np.log10(magnitude + 1e-12)
+    bin_hz = float(np.median(np.diff(freqs))) if len(freqs) > 1 else 1.0
+    size = max(3, int(round(window_hz / bin_hz)) | 1)  # odd number of bins
+    background = median_filter(magnitude_db, size=(size, 1), mode="nearest")
+    return magnitude_db - background
+
+
 def track_ridge_tfridge_like(
     magnitude,
     freqs,
@@ -145,13 +163,28 @@ def track_ridge_tfridge_like(
     top_k=12,
     jump_penalty=0.03,
     max_jump_hz=None,
+    min_snr_db=None,
 ):
+    # min_snr_db: if set, only peaks at least this many dB above the local background
+    # (see background_snr_db) can be picked, and frames with nothing above it are treated
+    # as inactive. None = old behaviour.
 
     n_times = magnitude.shape[1]
-    
+
     freq_traj = np.full(n_times, np.nan, dtype=float)
     amplitude_traj = np.full(n_times, np.nan, dtype=float) # initializing getting amplitude traj like what Dr. Tripp was talking abt
 
+    snr = None
+    if min_snr_db is not None:
+        snr = background_snr_db(magnitude, freqs)
+        # a frame only counts if it has a real local peak above the threshold. (checking the
+        # loudest bin isn't enough: that can be the 20 or 100 kHz edge, which isn't a peak, and
+        # then the tracker gets forced onto the edge and draws a spike there)
+        has_peak = np.zeros(n_times, dtype=bool)
+        for t in np.flatnonzero(active_bins):
+            p, _ = find_peaks(magnitude[:, t])
+            has_peak[t] = len(p) > 0 and snr[p, t].max() >= min_snr_db
+        active_bins = np.asarray(active_bins, dtype=bool) & has_peak
 
     active_indices = np.flatnonzero(active_bins)
 
@@ -183,9 +216,12 @@ def track_ridge_tfridge_like(
 
             peaks, _ = find_peaks(spectrum)
 
+            if snr is not None:
+                peaks = peaks[snr[peaks, t] >= min_snr_db] # drop peaks that are just background
+
             # if no local peak exists --> use strongest bin
             if len(peaks) == 0:
-                peaks = np.array([np.argmax(spectrum)])
+                peaks = np.array([np.argmax(spectrum if snr is None else snr[:, t])])
 
             peak_amplitudes = spectrum[peaks]
 
@@ -1109,4 +1145,3 @@ def export_dual_mft_pickle(audio_files, output_file):
         pickle.dump(contours, f)
 
     return output_file
-
