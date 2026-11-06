@@ -15,7 +15,10 @@
 **Duration: 2.5 hrs**
 - Looking more into email from & to Dr. Tripp
 - Figuring out the mode number thing
-- More jump stats omg
+- More jump stats 
+    - check jump presence on 400 jump study calls
+    - and then on the whole dataset
+    - ~80% did not have jumps
 
 ## Nov 1, 2026
 **Duration: 1.5 hrs**
