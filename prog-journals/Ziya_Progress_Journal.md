@@ -12,7 +12,7 @@
 - Could probably add best model saving/tracking @ sm pt
 
 ## Nov 5, 2026
-**Duration: **
+**Duration: 2.5 hrs**
 - Looking more into email from & to Dr. Tripp
 - Figuring out the mode number thing
 - More jump stats omg
