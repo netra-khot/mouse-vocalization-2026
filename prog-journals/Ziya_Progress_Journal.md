@@ -11,6 +11,12 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Nov 5, 2026
+**Duration: **
+- Looking more into email from & to Dr. Tripp
+- Figuring out the mode number thing
+- More jump stats omg
+
 ## Nov 1, 2026
 **Duration: 1.5 hrs**
 - Fixed venv issue (idk why this keeps happening again)
