@@ -139,14 +139,7 @@ def load_spectrogram( # this entire method basically uses methods above to load 
     return S_db, freqs, times
 
 def background_snr_db(magnitude, freqs, window_hz=20000):
-    """dB above the local background, for every (frequency, time) bin.
-
-    Background = median over a window_hz-wide band of neighbouring frequencies in the same
-    frame. A USV band is only a few bins wide so it barely moves the median, and unlike a
-    percentile over time this works even when the call fills most of the clip.
-    In pure noise the strongest bin of a frame is often 10-15 dB above this median, so
-    thresholds below ~15 dB will let some noise through.
-    """
+    
     from scipy.ndimage import median_filter
 
     magnitude_db = 20 * np.log10(magnitude + 1e-12)
@@ -180,11 +173,18 @@ def track_ridge_tfridge_like(
         # a frame only counts if it has a real local peak above the threshold. (checking the
         # loudest bin isn't enough: that can be the 20 or 100 kHz edge, which isn't a peak, and
         # then the tracker gets forced onto the edge and draws a spike there)
+        inner = (freqs > freqs[0] + 1000) & (freqs < freqs[-1] - 1000)
         has_peak = np.zeros(n_times, dtype=bool)
         for t in np.flatnonzero(active_bins):
             p, _ = find_peaks(magnitude[:, t])
+            p = p[inner[p]]
             has_peak[t] = len(p) > 0 and snr[p, t].max() >= min_snr_db
         active_bins = np.asarray(active_bins, dtype=bool) & has_peak
+        # drop stretches shorter than 3 frames (~1.5 ms). a lone frame where only a noise peak
+        # clears the threshold has no neighbours to keep the tracker on the band, so it just
+        # takes the loudest noise peak and draws a spike
+        from scipy.ndimage import binary_opening
+        active_bins = binary_opening(active_bins, structure=np.ones(3, dtype=bool))
 
     active_indices = np.flatnonzero(active_bins)
 
@@ -217,7 +217,11 @@ def track_ridge_tfridge_like(
             peaks, _ = find_peaks(spectrum)
 
             if snr is not None:
-                peaks = peaks[snr[peaks, t] >= min_snr_db] # drop peaks that are just background
+                # ignore peaks right at the 20 / 100 kHz edges of the range. the threshold is only
+                # used to decide which frames count (above); faint peaks stay as candidates so the
+                # tracker can keep following a band that is fading out instead of being forced
+                # onto the one loud thing left in the frame
+                peaks = peaks[(freqs[peaks] > freqs[0] + 1000) & (freqs[peaks] < freqs[-1] - 1000)]
 
             # if no local peak exists --> use strongest bin
             if len(peaks) == 0:
