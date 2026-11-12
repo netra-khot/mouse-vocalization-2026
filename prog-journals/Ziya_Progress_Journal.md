@@ -11,6 +11,10 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Nov 11, 2026
+**Duration: **
+- 
+
 ## Nov 5, 2026
 **Duration: 2.5 hrs**
 - Looking more into email from & to Dr. Tripp
