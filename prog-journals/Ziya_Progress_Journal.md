@@ -11,6 +11,11 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Nov 12, 2026
+**Duration: 1 hr 30 min**
+- i actually lost my mind writing that email why did that take so long
+- make histogram with mode number distribution!
+
 ## Nov 11, 2026
 **Duration: 1 hr 30 min**
 - Reviewed call w/ Dr. Tripp & Dr. Scott + made list of deliverables
