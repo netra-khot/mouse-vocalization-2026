@@ -11,6 +11,22 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
+## Nov 11, 2026
+**Duration: 1 hr 30 min**
+- Reviewed call w/ Dr. Tripp & Dr. Scott + made list of deliverables
+- Drafted a short project summary email to Dr. Scott, copying Dr. Tripp
+- Estimated mode numbers for 113 jumps by dividing the lower pitch by the jump zies
+    - Values formed a hump btwn. 1.0 & 1.75 with almost none at 4 or 5
+    - Only 23% were near whole numbers, so the estimate is really rough
+- Evaluated the trained model on 2.2k test calls
+    - Error was 2.3 kHz overall, and 4.5 kHz on the 220 jump calls
+    - 12 num pca compression was already 4.8 kHz RMSE on those calls, so most of the jump error is coming from compression
+        - NOT muscle model!!!! --> omg wait we need to tell Dr. Tripp
+- Found that the jump calls are 10% of the test set but 54% of the worst 100 calls
+- Compared trackers on calls with two visible pitch lines
+    - Strongest frequency tracker found a jump in about 39% (275 of 711), while following only the lower line found one in under 2% (10 of 591)
+        - much of the jump count on these calls comes from the tracker flipping btwn. lines
+
 ## Nov 5, 2026
 **Duration: 2.5 hrs**
 - Looking more into email from & to Dr. Tripp
