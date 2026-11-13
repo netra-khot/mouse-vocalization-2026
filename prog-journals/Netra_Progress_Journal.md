@@ -1,5 +1,16 @@
 # Netra's Progress Journal #
-fix DBA_3168_248
+## ENTRY 25 &rarr; 11/05/26 (1.5 hrs)
+haven't tracked this in a while
+- based on ziya's work on the jump stats, it seems that the results may not be accurate bc of the jump tracker switching between modes when the actual usv doesn't reflect the same behavior
+- made new function background_snr_db
+    - measures how far each point of the spectrogram is above the background noise
+    - in dB
+    - doesnt apply to single syllable calls
+- changed some settings in track_ridge_tfridge_like
+    - mft only switches to a new frame if it has a peak above min_snr_db
+    - removes short spikes bc in usvs that is unrealistic
+    - spikes at the edges of call r ignored, most likely noise
+
 ## ENTRY 25 &rarr; 10/07/26 (45 mins)
 - not lots of time but improved top ridge extraction a bit, will finish this soon
 -  some issues were that the top ridge tracker deleted its peaks when the bottom ridge was missing

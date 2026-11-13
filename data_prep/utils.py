@@ -453,11 +453,26 @@ def _track_ridge_branch(
     noise_percentile=20,
     branch_preference_db=8,
     min_separation_hz=2000,
+    max_drop_db=None,
+    pick_extreme=None,
+    min_snr_db=None,
+    edge_margin_hz=0,
 ):
+    # max_drop_db: peaks this many dB below the frame's strongest are dropped (None = 20 top / 12 bottom)
+    # pick_extreme: keep only the lowest (bottom) / highest (top) strong peak (None = bottom only)
+    # min_snr_db: peaks must be this far above the local background (background_snr_db)
+    if max_drop_db is None:
+        max_drop_db = 20 if branch == "top" else 12
+    if pick_extreme is None:
+        pick_extreme = branch == "bottom"
+
     n_times = magnitude.shape[1]
 
     freq_traj = np.full(n_times, np.nan)
     amplitude_traj = np.full(n_times, np.nan)
+
+    snr = background_snr_db(magnitude, freqs) if min_snr_db is not None else None
+    inner = (freqs > freqs[0] + edge_margin_hz) & (freqs < freqs[-1] - edge_margin_hz)
 
     magnitude_db = librosa.amplitude_to_db(
         magnitude,
@@ -486,6 +501,10 @@ def _track_ridge_branch(
             continue
 
         peaks, _ = find_peaks(magnitude[:, t])
+        if edge_margin_hz:
+            peaks = peaks[inner[peaks]]
+        if snr is not None:
+            peaks = peaks[snr[peaks, t] >= min_snr_db]
 
         if len(peaks) == 0:
             candidate_bins_by_time.append(np.array([], dtype=int))
@@ -506,22 +525,27 @@ def _track_ridge_branch(
         if len(peaks) > 0:
             strongest_peak_db = np.max(magnitude_db[peaks, t])
 
-            maximum_drop_db = 20 if branch == "top" else 12
+            # maximum_drop_db = 20 if branch == "top" else 12
 
             strong_enough = (
                 magnitude_db[peaks, t]
-                >= strongest_peak_db - maximum_drop_db
+                >= strongest_peak_db - max_drop_db
             )
 
             peaks = peaks[strong_enough]
             db_above_noise = db_above_noise[strong_enough]
 
-        # Choose the lowest strong peak for the bottom trajectory
-        if branch == "bottom" and len(peaks) > 0:
-            lowest_index = np.argmin(freqs[peaks])
+        # Choose the lowest (bottom) / highest (top) strong peak
+        # if branch == "bottom" and len(peaks) > 0:
+        #     lowest_index = np.argmin(freqs[peaks])
+        #
+        #     peaks = peaks[[lowest_index]]
+        #     db_above_noise = db_above_noise[[lowest_index]]
+        if pick_extreme and len(peaks) > 0:
+            pick = np.argmin(freqs[peaks]) if branch == "bottom" else np.argmax(freqs[peaks])
 
-            peaks = peaks[[lowest_index]]
-            db_above_noise = db_above_noise[[lowest_index]]
+            peaks = peaks[[pick]]
+            db_above_noise = db_above_noise[[pick]]
 
         # so this is making sure the top ridge must be above the detected bottom ridge
         if (
@@ -726,6 +750,53 @@ def track_top_ridge_tfridge_like(
         bottom_freq_traj=bottom_freq_traj,
         **kwargs,
     )
+
+def extract_ridges(
+    audio_path,
+    freq_min=20000,
+    freq_max=100000,
+    n_fft=1024,
+    hop_length=128,
+    entropy_threshold=0.85,
+    min_snr_db=15,
+    main_jump_penalty=2,
+    max_drop_db=12,
+):
+    # main / bottom / top ridges on the same spectrogram and activity mask, no cleanup afterwards
+    times, freqs, magnitude = get_spectrogram(audio_path, n_fft=n_fft, hop_length=hop_length)
+    mask = (freqs >= freq_min) & (freqs <= freq_max)
+    freqs, mag = freqs[mask], magnitude[mask]
+
+    out = dict(times=times, freqs=freqs, mag=mag)
+    empty = np.full(len(times), np.nan)
+    if mag.shape[0] < 2:
+        out["active"] = np.zeros(len(times), dtype=bool)
+        for name in ("main", "bottom", "top"):
+            out[name], out[name + "_amp"] = empty.copy(), empty.copy()
+        return out
+
+    power = mag ** 2
+    p = power / (power.sum(axis=0, keepdims=True) + 1e-12)
+    entropy = -(p * np.log2(p + 1e-12)).sum(axis=0) / np.log2(len(freqs))
+    if len(entropy) >= 3:
+        entropy = np.convolve(entropy, np.ones(3) / 3, mode="same")
+    active = binary_opening(entropy < entropy_threshold, structure=np.ones(2))
+    active = binary_closing(active, structure=np.ones(2))
+    active = binary_dilation(active, structure=np.ones(5))
+    out["active"] = active
+
+    out["main"], out["main_amp"] = track_ridge_tfridge_like(
+        mag, freqs, active, top_k=12, jump_penalty=main_jump_penalty,
+        max_jump_hz=None, min_snr_db=min_snr_db,
+    )
+    branch_kwargs = dict(
+        max_drop_db=max_drop_db, pick_extreme=True, min_snr_db=min_snr_db,
+        edge_margin_hz=1000, branch_preference_db=0,
+    )
+    out["bottom"], out["bottom_amp"] = track_bottom_ridge_tfridge_like(mag, freqs, active, **branch_kwargs)
+    out["top"], out["top_amp"] = track_top_ridge_tfridge_like(mag, freqs, active, None, **branch_kwargs)
+    return out
+
 
 def get_dual_freq_traj(
     audio_path,
