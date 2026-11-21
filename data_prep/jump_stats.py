@@ -92,7 +92,8 @@ def rate_by_band(jumps, calls, frame_s, min_frames=20):
                              jumps_per_s=rate))
 
 
-def compare_trackers(wavs, n_calls=400, seed=2, threshold_khz=THRESHOLD_KHZ, save_csv="jumps_trackers.csv"):
+def compare_trackers(wavs, n_calls=400, seed=2, threshold_khz=THRESHOLD_KHZ, min_frames=MIN_FRAMES,
+                     save_csv="jumps_trackers.csv", **ridge_kwargs):
     order = np.random.default_rng(seed).permutation(len(wavs))
     jump_rows, call_rows, n_used, frame_s = [], [], 0, None
     for i in order:
@@ -100,11 +101,11 @@ def compare_trackers(wavs, n_calls=400, seed=2, threshold_khz=THRESHOLD_KHZ, sav
             break
         path = str(wavs[int(i)])
         try:
-            r = extract_ridges(path)
+            r = extract_ridges(path, **ridge_kwargs)
         except Exception:
             continue
         per_tracker = {name: detect_jumps(r["times"], r[name], r[name + "_amp"], r["active"],
-                                          threshold_khz=threshold_khz) for name in TRACKERS}
+                                          threshold_khz=threshold_khz, min_frames=min_frames) for name in TRACKERS}
         if per_tracker["main"][1] is None:
             continue
         n_used += 1

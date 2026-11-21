@@ -457,10 +457,12 @@ def _track_ridge_branch(
     pick_extreme=None,
     min_snr_db=None,
     edge_margin_hz=0,
+    harmonic_tol=None,
 ):
     # max_drop_db: peaks this many dB below the frame's strongest are dropped (None = 20 top / 12 bottom)
     # pick_extreme: keep only the lowest (bottom) / highest (top) strong peak (None = bottom only)
     # min_snr_db: peaks must be this far above the local background (background_snr_db)
+    # harmonic_tol: drop peaks within this fraction of 2x or 3x a stronger peak in the frame
     if max_drop_db is None:
         max_drop_db = 20 if branch == "top" else 12
     if pick_extreme is None:
@@ -505,6 +507,11 @@ def _track_ridge_branch(
             peaks = peaks[inner[peaks]]
         if snr is not None:
             peaks = peaks[snr[peaks, t] >= min_snr_db]
+        if harmonic_tol is not None and len(peaks) > 1:
+            ratio = freqs[peaks][:, None] / freqs[peaks][None, :]
+            weaker = magnitude[peaks, t][:, None] < magnitude[peaks, t][None, :]
+            is_harmonic = (((np.abs(ratio / 2 - 1) <= harmonic_tol) | (np.abs(ratio / 3 - 1) <= harmonic_tol)) & weaker).any(axis=1)
+            peaks = peaks[~is_harmonic]
 
         if len(peaks) == 0:
             candidate_bins_by_time.append(np.array([], dtype=int))
@@ -751,6 +758,37 @@ def track_top_ridge_tfridge_like(
         **kwargs,
     )
 
+def drop_short_pieces(freq_traj, amplitude_traj, max_step_hz=5000, min_frames=3):
+    freq_traj, amplitude_traj = freq_traj.copy(), amplitude_traj.copy()
+    finite = np.isfinite(freq_traj)
+    breaks = ~finite[1:] | ~finite[:-1] | (np.abs(np.diff(freq_traj)) > max_step_hz)
+    starts = np.concatenate([[0], np.flatnonzero(breaks) + 1])
+    ends = np.concatenate([starts[1:], [len(freq_traj)]])
+    for a, b in zip(starts, ends):
+        if finite[a] and b - a < min_frames:
+            freq_traj[a:b] = np.nan
+            amplitude_traj[a:b] = np.nan
+    return freq_traj, amplitude_traj
+
+
+def ridge_spectrogram(audio_path, freq_min=20000, freq_max=100000, n_fft=1024, hop_length=128,
+                      entropy_threshold=0.85):
+    times, freqs, magnitude = get_spectrogram(audio_path, n_fft=n_fft, hop_length=hop_length)
+    mask = (freqs >= freq_min) & (freqs <= freq_max)
+    freqs, mag = freqs[mask], magnitude[mask]
+    if mag.shape[0] < 2:
+        return times, freqs, mag, np.zeros(len(times), dtype=bool)
+    power = mag ** 2
+    p = power / (power.sum(axis=0, keepdims=True) + 1e-12)
+    entropy = -(p * np.log2(p + 1e-12)).sum(axis=0) / np.log2(len(freqs))
+    if len(entropy) >= 3:
+        entropy = np.convolve(entropy, np.ones(3) / 3, mode="same")
+    active = binary_opening(entropy < entropy_threshold, structure=np.ones(2))
+    active = binary_closing(active, structure=np.ones(2))
+    active = binary_dilation(active, structure=np.ones(5))
+    return times, freqs, mag, active
+
+
 def extract_ridges(
     audio_path,
     freq_min=20000,
@@ -760,30 +798,18 @@ def extract_ridges(
     entropy_threshold=0.85,
     min_snr_db=15,
     main_jump_penalty=2,
-    max_drop_db=12,
+    max_drop_db=6,
+    harmonic_tol=0.04,
+    min_piece_frames=3,
 ):
     # main / bottom / top ridges on the same spectrogram and activity mask, no cleanup afterwards
-    times, freqs, magnitude = get_spectrogram(audio_path, n_fft=n_fft, hop_length=hop_length)
-    mask = (freqs >= freq_min) & (freqs <= freq_max)
-    freqs, mag = freqs[mask], magnitude[mask]
-
-    out = dict(times=times, freqs=freqs, mag=mag)
-    empty = np.full(len(times), np.nan)
+    times, freqs, mag, active = ridge_spectrogram(audio_path, freq_min, freq_max, n_fft, hop_length,
+                                                  entropy_threshold)
+    out = dict(times=times, freqs=freqs, mag=mag, active=active)
     if mag.shape[0] < 2:
-        out["active"] = np.zeros(len(times), dtype=bool)
         for name in ("main", "bottom", "top"):
-            out[name], out[name + "_amp"] = empty.copy(), empty.copy()
+            out[name], out[name + "_amp"] = np.full(len(times), np.nan), np.full(len(times), np.nan)
         return out
-
-    power = mag ** 2
-    p = power / (power.sum(axis=0, keepdims=True) + 1e-12)
-    entropy = -(p * np.log2(p + 1e-12)).sum(axis=0) / np.log2(len(freqs))
-    if len(entropy) >= 3:
-        entropy = np.convolve(entropy, np.ones(3) / 3, mode="same")
-    active = binary_opening(entropy < entropy_threshold, structure=np.ones(2))
-    active = binary_closing(active, structure=np.ones(2))
-    active = binary_dilation(active, structure=np.ones(5))
-    out["active"] = active
 
     out["main"], out["main_amp"] = track_ridge_tfridge_like(
         mag, freqs, active, top_k=12, jump_penalty=main_jump_penalty,
@@ -794,8 +820,91 @@ def extract_ridges(
         edge_margin_hz=1000, branch_preference_db=0,
     )
     out["bottom"], out["bottom_amp"] = track_bottom_ridge_tfridge_like(mag, freqs, active, **branch_kwargs)
-    out["top"], out["top_amp"] = track_top_ridge_tfridge_like(mag, freqs, active, None, **branch_kwargs)
+    out["top"], out["top_amp"] = track_top_ridge_tfridge_like(
+        mag, freqs, active, None, harmonic_tol=harmonic_tol, **branch_kwargs)
+    if min_piece_frames:
+        for name in ("main", "bottom", "top"):
+            out[name], out[name + "_amp"] = drop_short_pieces(out[name], out[name + "_amp"], min_frames=min_piece_frames)
     return out
+
+
+
+def frame_peaks(spectrum, snr_col, freqs, min_snr_db=15, rel_amp=0.5, min_sep_hz=3000,
+                edge_margin_hz=1000, harmonic_tol=0.04):
+    # tripp's rule: strongest peak plus every peak >= rel_amp x its amplitude
+    peaks, _ = find_peaks(spectrum)
+    peaks = peaks[(freqs[peaks] > freqs[0] + edge_margin_hz) & (freqs[peaks] < freqs[-1] - edge_margin_hz)]
+    peaks = peaks[snr_col[peaks] >= min_snr_db]
+    if len(peaks) == 0:
+        return peaks
+    peaks = peaks[spectrum[peaks] >= rel_amp * spectrum[peaks].max()]
+    kept = []
+    for p in peaks[np.argsort(spectrum[peaks])[::-1]]:
+        if all(abs(freqs[p] - freqs[k]) >= min_sep_hz for k in kept):
+            kept.append(p)
+    peaks = np.array(sorted(kept), dtype=int)
+    if harmonic_tol is not None and len(peaks) > 1:
+        ratio = freqs[peaks][:, None] / freqs[peaks][None, :]
+        weaker = spectrum[peaks][:, None] < spectrum[peaks][None, :]
+        is_harmonic = (((np.abs(ratio / 2 - 1) <= harmonic_tol) | (np.abs(ratio / 3 - 1) <= harmonic_tol))
+                       & weaker).any(axis=1)
+        peaks = peaks[~is_harmonic]
+    return peaks
+
+
+def _predict_ridge_freq(ridge, t, max_slope_hz):
+    f, fr = ridge["freq_hz"], ridge["frames"]
+    if len(f) < 3:
+        return f[-1]
+    slope = np.clip((f[-1] - f[-3]) / (fr[-1] - fr[-3]), -max_slope_hz, max_slope_hz)
+    return f[-1] + slope * (t - fr[-1])
+
+
+def track_dual_ridges(magnitude, freqs, active, min_snr_db=15, rel_amp=0.5, min_sep_hz=3000,
+                      edge_margin_hz=1000, harmonic_tol=0.04, max_step_hz=5000, max_gap=1, min_frames=3):
+    # returns a list of ridges, each dict(frames, freq_hz, amplitude); peaks are linked frame to frame
+    # to the frequency predicted from the ridge's recent slope (miss <= max_step_hz); a ridge may skip
+    # max_gap frames before it ends
+    from scipy.optimize import linear_sum_assignment
+
+    snr = background_snr_db(magnitude, freqs)
+    open_ridges, closed = [], []
+    for t in range(magnitude.shape[1]):
+        peaks = (frame_peaks(magnitude[:, t], snr[:, t], freqs, min_snr_db, rel_amp, min_sep_hz,
+                             edge_margin_hz, harmonic_tol) if active[t] else np.array([], dtype=int))
+        still_open = []
+        for r in open_ridges:
+            (still_open if t - r["frames"][-1] <= max_gap + 1 else closed).append(r)
+        open_ridges = still_open
+
+        matched = set()
+        if len(peaks) and open_ridges:
+            predicted = np.array([_predict_ridge_freq(r, t, max_step_hz) for r in open_ridges])
+            cost = np.abs(predicted[:, None] - freqs[peaks][None, :])
+            rows, cols = linear_sum_assignment(np.where(cost <= max_step_hz, cost, 1e12))
+            for i, j in zip(rows, cols):
+                if cost[i, j] <= max_step_hz:
+                    r = open_ridges[i]
+                    r["frames"].append(t); r["freq_hz"].append(freqs[peaks[j]])
+                    r["amplitude"].append(magnitude[peaks[j], t])
+                    matched.add(j)
+        for j, p in enumerate(peaks):
+            if j not in matched:
+                open_ridges.append(dict(frames=[t], freq_hz=[freqs[p]], amplitude=[magnitude[p, t]]))
+    closed += open_ridges
+
+    ridges = [{k: np.asarray(v) for k, v in r.items()} for r in closed if len(r["frames"]) >= min_frames]
+    return sorted(ridges, key=lambda r: r["frames"][0])
+
+
+def extract_dual_ridges(audio_path, freq_min=20000, freq_max=100000, n_fft=1024, hop_length=128,
+                        entropy_threshold=0.85, **tracker_kwargs):
+    times, freqs, mag, active = ridge_spectrogram(audio_path, freq_min, freq_max, n_fft, hop_length,
+                                                  entropy_threshold)
+    ridges = track_dual_ridges(mag, freqs, active, **tracker_kwargs) if mag.shape[0] >= 2 else []
+    for r in ridges:
+        r["time_s"] = times[r["frames"]]
+    return dict(times=times, freqs=freqs, mag=mag, active=active, ridges=ridges)
 
 
 def get_dual_freq_traj(
