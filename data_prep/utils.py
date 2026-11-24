@@ -1329,3 +1329,60 @@ def export_dual_mft_pickle(audio_files, output_file):
         pickle.dump(contours, f)
 
     return output_file
+
+# jump-removed trajectories (main ridge from extract_ridges, cleaned with remove_jumps.py)
+def _jump_removed_contours(audio_files, threshold, tracker="main", anchor="first", frozen=False,
+                           tracks=None, min_good_frames=10):
+    # tracks: optional dict already made by remove_jumps.extract_tracks (e.g. pkl-files/test_tracks_main.pkl),
+    #         skips re-reading the audio. frozen=True uses the frozen copy of the jump removal.
+    import remove_jumps as rj  # imported here: remove_jumps imports utils, so a top-level import would be circular
+    clean_fn = rj.remove_jumps_track_frozen if frozen else rj.remove_jumps_track
+    if tracks is None:
+        tracks = rj.extract_tracks(audio_files, tracker=tracker, min_good_frames=min_good_frames, save_as=None)
+
+    contours = {}
+    for key, t in tracks.items():
+        raw = np.asarray(t["frequency_hz"], dtype=float)
+        f_clean, jump_idx = clean_fn(raw, threshold, anchor=anchor)
+        keep = np.isfinite(f_clean)
+        if keep.sum() < 2:
+            continue
+        times = np.asarray(t["time_s"])
+        contours[key] = {
+            "time_s": times[keep],
+            "frequency_hz": f_clean[keep],
+            "frequency_raw_hz": raw[keep],
+            "amplitude": np.asarray(t["amplitude"])[keep],
+            "duration_s": times[keep][-1] - times[keep][0],
+            "jump_times_s": times[jump_idx],
+            "n_jumps": len(jump_idx),
+        }
+    return contours
+
+
+#pkl version
+def export_jump_removed_pickle(audio_files, output_file, threshold, **kwargs):
+    contours = _jump_removed_contours(audio_files, threshold, **kwargs)
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_file, "wb") as f:
+        pickle.dump(contours, f)
+    return output_file
+
+
+#csv version -> one row per frame
+def export_jump_removed_csv(audio_files, output_file, threshold, **kwargs):
+    contours = _jump_removed_contours(audio_files, threshold, **kwargs)
+    df = pd.concat(
+        [pd.DataFrame({
+            "file": key,
+            "time_s": c["time_s"],
+            "frequency_hz": c["frequency_hz"],
+            "frequency_raw_hz": c["frequency_raw_hz"],
+            "amplitude": c["amplitude"],
+            "is_jump": np.isin(c["time_s"], c["jump_times_s"]),
+        }) for key, c in contours.items()],
+        ignore_index=True,
+    )
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_file, index=False)
+    return output_file

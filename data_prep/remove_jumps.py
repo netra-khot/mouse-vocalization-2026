@@ -35,6 +35,33 @@ def remove_jumps_track(track, threshold, anchor="first"):
     return f_clean, good[jumps]   # jump indices are frame indices in the original track
 
 
+# ---------------------------------------------------------------------------------------------
+# FROZEN copies: a snapshot of remove_jumps / remove_jumps_track as of 2026-11-23, kept for a
+# collaborator who needs this exact behaviour. Do NOT edit these; change the originals above instead.
+# ---------------------------------------------------------------------------------------------
+def remove_jumps_frozen(f, threshold):
+    df = np.diff(f)
+    is_jump = np.abs(df) > threshold
+    df[is_jump] = 0
+    f_clean = f[0] + np.concatenate([[0], np.cumsum(df)])
+    return f_clean, np.where(is_jump)[0] + 1
+
+
+def remove_jumps_track_frozen(track, threshold, anchor="first"):
+    f_clean = np.full(len(track), np.nan)
+    good = np.flatnonzero(np.isfinite(track))
+    if len(good) == 0:
+        return f_clean, np.array([], dtype=int)
+    cleaned, jumps = remove_jumps_frozen(track[good], threshold)
+    if anchor == "longest" and len(jumps):
+        edges = np.concatenate([[0], jumps, [len(good)]])
+        i = np.argmax(np.diff(edges))
+        seg = slice(edges[i], edges[i + 1])
+        cleaned = cleaned + np.median(track[good][seg] - cleaned[seg])
+    f_clean[good] = cleaned
+    return f_clean, good[jumps]
+
+
 def extract_tracks(wavs, tracker="main", min_good_frames=10, save_as="tracks_main.pkl", **ridge_kwargs):
     # slow part (reads audio): one track per call, same time base as extract_ridges
     tracks = {}
