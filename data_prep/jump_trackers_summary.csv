@@ -1,0 +1,16 @@
+,main,bottom,top
+calls,400,400,400
+jumps,66,155,102
+jumps per call,0.17,0.39,0.26
+calls with no jumps (%),90.0,82.2,88.5
+jumps per call (calls that have any),1.65,2.18,2.22
+median size (kHz),29.9,26.1,32.6
+size IQR (kHz),25.8-33.3,18.8-31.9,27.6-37.0
+up (%),37.9,47.1,44.1
+octave jumps (%),3.0,10.3,24.5
+median n = f_lower/|df|,1.54,1.65,1.47
+n within +/-0.15 of integer (%),10.6,27.1,43.1
+most common n (rounded),2,2,1
+most common n (near-integer only),1,1,1
+median position in call (0-1),0.42,0.47,0.54
+first / middle / last third (%),39/41/20,30/43/26,26/48/25
