@@ -35,10 +35,7 @@ def remove_jumps_track(track, threshold, anchor="first"):
     return f_clean, good[jumps]   # jump indices are frame indices in the original track
 
 
-# ---------------------------------------------------------------------------------------------
-# FROZEN copies: a snapshot of remove_jumps / remove_jumps_track as of 2026-11-23, kept for a
-# collaborator who needs this exact behaviour. Do NOT edit these; change the originals above instead.
-# ---------------------------------------------------------------------------------------------
+# for ziya usage
 def remove_jumps_frozen(f, threshold):
     df = np.diff(f)
     is_jump = np.abs(df) > threshold
@@ -46,7 +43,7 @@ def remove_jumps_frozen(f, threshold):
     f_clean = f[0] + np.concatenate([[0], np.cumsum(df)])
     return f_clean, np.where(is_jump)[0] + 1
 
-
+# for ziya usage
 def remove_jumps_track_frozen(track, threshold, anchor="first"):
     f_clean = np.full(len(track), np.nan)
     good = np.flatnonzero(np.isfinite(track))

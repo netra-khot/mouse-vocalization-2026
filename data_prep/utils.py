@@ -1330,12 +1330,10 @@ def export_dual_mft_pickle(audio_files, output_file):
 
     return output_file
 
-# jump-removed trajectories (main ridge from extract_ridges, cleaned with remove_jumps.py)
 def _jump_removed_contours(audio_files, threshold, tracker="main", anchor="first", frozen=False,
                            tracks=None, min_good_frames=10):
-    # tracks: optional dict already made by remove_jumps.extract_tracks (e.g. pkl-files/test_tracks_main.pkl),
-    #         skips re-reading the audio. frozen=True uses the frozen copy of the jump removal.
-    import remove_jumps as rj  # imported here: remove_jumps imports utils, so a top-level import would be circular
+
+    import jump_analysis.remove_jumps as rj  
     clean_fn = rj.remove_jumps_track_frozen if frozen else rj.remove_jumps_track
     if tracks is None:
         tracks = rj.extract_tracks(audio_files, tracker=tracker, min_good_frames=min_good_frames, save_as=None)
