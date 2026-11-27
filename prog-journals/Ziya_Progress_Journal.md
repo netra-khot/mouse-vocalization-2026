@@ -11,9 +11,13 @@
 - Try dropout
 - Could probably add best model saving/tracking @ sm pt
 
-## Nov 25, 2026
+## Nov 27, 2026
 **Duration: **
 - 
+
+## Nov 25, 2026
+**Duration: 1 **
+- something about jump study idk (added this in late)
 
 ## Nov 12, 2026
 **Duration: 1 hr 30 min**
